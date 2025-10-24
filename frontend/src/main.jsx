@@ -8,12 +8,14 @@ import Home from "./routes/Home";
 import Posts from "./routes/Posts";
 import Kapcsolatok from "./routes/Kapcsolatok";
 import Ajanlatkeres from "./routes/Ajanlatkeres";
+import AdminLogin from "./routes/AdminLogin";
 
 const router = createBrowserRouter([
   { path: "/", element: <Home /> },
   { path: "/posts", element: <Posts /> },
   { path: "/kapcsolatok", element: <Kapcsolatok /> },
   { path: "/ajanlatkeres", element: <Ajanlatkeres /> },
+  { path: "/admin", element: <AdminLogin /> },
 ]);
 const qc = new QueryClient();
 
