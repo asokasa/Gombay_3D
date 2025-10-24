@@ -63,6 +63,15 @@ export default function Navbar() {
             </li>
             <li>
               <Link
+                to="/admin"
+                className="text-sky-800 hover:text-red-500"
+                onClick={handleNavigate}
+              >
+                Admin
+              </Link>
+            </li>
+            <li>
+              <Link
                 to="/ajanlatkeres"
                 className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-500"
                 onClick={handleNavigate}
