@@ -174,11 +174,11 @@ function ModelPreview({ file, analysis, scaledSizeCm }) {
       </div>
       {showBoundingBox ? (
         <p className="text-xs text-slate-500">
-          STEP fÃ¡jlok esetÃ©n becsÃ¼lt mÃ©ret alapjÃ¡n megjelenÃ­tett hatÃ¡rolÃ³ doboz lÃ¡thatÃ³.
+          STEP fájlok esetén becsült méret alapján megjelenített határoló doboz látható.
         </p>
       ) : (
         <p className="text-xs text-slate-500">
-          A modell elÅ‘nÃ©zetÃ©ben szabadon forgathatod Ã©s nagyÃ­thatod a fÃ¡jlt.
+          A modell előnézetében szabadon forgathatod és nagyíthatod a fájlt.
         </p>
       )}
     </div>
@@ -186,15 +186,15 @@ function ModelPreview({ file, analysis, scaledSizeCm }) {
 }
 
 const UNIT_PRESETS = [
-  { value: "mm", label: "MillimÃ©ter (mm)", toMillimeter: 1 },
-  { value: "cm", label: "CentimÃ©ter (cm)", toMillimeter: 10 },
-  { value: "m", label: "MÃ©ter (m)", toMillimeter: 1000 },
-  { value: "inch", label: "HÃ¼velyk (inch)", toMillimeter: 25.4 },
+  { value: "mm", label: "Milliméter (mm)", toMillimeter: 1 },
+  { value: "cm", label: "Centiméter (cm)", toMillimeter: 10 },
+  { value: "m", label: "Méter (m)", toMillimeter: 1000 },
+  { value: "inch", label: "Hüvelyk (inch)", toMillimeter: 25.4 },
 ];
 
 function formatNumber(value, fractionDigits = 2) {
   if (!Number.isFinite(value)) {
-    return "â€”";
+    return "-";
   }
   return new Intl.NumberFormat("hu-HU", {
     minimumFractionDigits: fractionDigits,
@@ -204,7 +204,7 @@ function formatNumber(value, fractionDigits = 2) {
 
 function formatCurrency(value) {
   if (!Number.isFinite(value)) {
-    return "â€”";
+    return "-";
   }
   return new Intl.NumberFormat("hu-HU", {
     style: "currency",
@@ -215,28 +215,28 @@ function formatCurrency(value) {
 
 function formatMass(value) {
   if (!Number.isFinite(value)) {
-    return "â€”";
+    return "-";
   }
   return `${formatNumber(value, 1)} g`;
 }
 
 function formatPricePerGram(value) {
   if (!Number.isFinite(value)) {
-    return "â€”";
+    return "-";
   }
   return `${formatNumber(value, 0)} Ft/g`;
 }
 
 function formatDimensionArray(values) {
   if (!values?.length) {
-    return "â€”";
+    return "-";
   }
-  return values.map((value) => `${formatNumber(value, 2)} cm`).join(" Ã— ");
+  return values.map((value) => `${formatNumber(value, 2)} cm`).join(" x ");
 }
 
 function formatPercentage(value) {
   if (!Number.isFinite(value)) {
-    return "â€”";
+    return "-";
   }
   return `${formatNumber(value, 1)}%`;
 }
@@ -299,33 +299,33 @@ function QuoteCalculator() {
     if (selectedFile.size > 50 * 1024 * 1024) {
       setStatus({
         type: "error",
-        message: "Legfeljebb 50 MB mÃ©retÅ± fÃ¡jl tÃ¶lthetÅ‘ fel.",
+        message: "Legfeljebb 50 MB méretű fájl tölthető fel.",
       });
       setFile(null);
       return;
     }
     setLoading(true);
-    setStatus({ type: "info", message: "A fÃ¡jl feldolgozÃ¡sa folyamatban..." });
+    setStatus({ type: "info", message: "A fájl feldolgozása folyamatban..." });
     try {
       const result = await analyze3DFile(selectedFile);
       setFile(selectedFile);
       setBaseAnalysis(result);
       setAnalysis(result);
-      const messageParts = ["A fÃ¡jl sikeresen ellenÅ‘rizve."];
+      const messageParts = ["A fájl sikeresen ellenőrizve."];
       const recommendedScale = result.autoScale?.recommendedScale;
       if (Number.isFinite(recommendedScale) && recommendedScale < 1) {
         messageParts.push(
-          `A modell nagyobb a ${MAX_DIMENSION_CM} cm-es nyomtatÃ¡si tÃ©rnÃ©l, ${formatNumber(
+          `A modell nagyobb a ${MAX_DIMENSION_CM} cm-es nyomtatási térnél, ${formatNumber(
             recommendedScale * 100,
             0
-          )}% mÃ©retarÃ¡nyt javaslunk. KÃ©rjÃ¼k, jelezd a kÃ­vÃ¡nt mÃ©retet az Ã¼zenetben.`
+          )}% méretarányt javaslunk. Kérjük, jelezd a kívánt méretet az üzenetben.`
         );
       }
       if (result.warnings?.length) {
-        messageParts.push("EllenÅ‘rizd a lenti figyelmeztetÃ©seket a gyÃ¡rtÃ¡s elÅ‘tt.");
+        messageParts.push("Ellenőrizd a lenti figyelmeztetéseket a gyártás előtt.");
       }
       if (result.detectedUnit) {
-        messageParts.push(`FeltÃ©telezett egysÃ©g: ${result.detectedUnit}.`);
+        messageParts.push(`Feltételezett egység: ${result.detectedUnit}.`);
       }
       setStatus({
         type: result.warnings?.length ? "warning" : "success",
@@ -340,7 +340,7 @@ function QuoteCalculator() {
         message:
           error instanceof Error
             ? error.message
-            : "Ismeretlen hiba tÃ¶rtÃ©nt a fÃ¡jl feldolgozÃ¡sa sorÃ¡n.",
+            : "Ismeretlen hiba történt a fájl feldolgozása során.",
       });
     } finally {
       setLoading(false);
@@ -356,12 +356,12 @@ function QuoteCalculator() {
     if (value === "auto") {
       if (baseAnalysis) {
         setAnalysis(baseAnalysis);
-        const messageParts = ["Automatikus egysÃ©gfelismerÃ©s alkalmazva."];
+        const messageParts = ["Automatikus egységfelismerés alkalmazva."];
         if (baseAnalysis.detectedUnit) {
-          messageParts.push(`FeltÃ©telezett egysÃ©g: ${baseAnalysis.detectedUnit}.`);
+          messageParts.push(`Feltételezett egység: ${baseAnalysis.detectedUnit}.`);
         }
         if (baseAnalysis.warnings?.length) {
-          messageParts.push("EllenÅ‘rizd a lenti figyelmeztetÃ©seket a gyÃ¡rtÃ¡s elÅ‘tt.");
+          messageParts.push("Ellenőrizd a lenti figyelmeztetéseket a gyártás előtt.");
         }
         setStatus({
           type: baseAnalysis.warnings?.length ? "warning" : "success",
@@ -379,23 +379,23 @@ function QuoteCalculator() {
     setLoading(true);
     setStatus({
       type: "info",
-      message: `${preset.label} feltÃ©telezÃ©sÃ©vel ÃºjraÃ©rtÃ©keljÃ¼k a modellt...`,
+      message: `${preset.label} feltételezésével újraértékeljük a modellt...`,
     });
 
     try {
       const result = await analyze3DFile(file, { unitOverride: preset });
       setAnalysis(result);
-      const messageParts = [`${preset.label} feltÃ©telezÃ©sÃ©vel ÃºjraÃ©rtÃ©keltÃ¼k a modellt.`];
+      const messageParts = [`${preset.label} feltételezésével újraértékeltük a modellt.`];
       if (result.autoScale?.recommendedScale < 1) {
         messageParts.push(
-          `A modell nagyobb a ${MAX_DIMENSION_CM} cm-es nyomtatÃ¡si tÃ©rnÃ©l, ${formatNumber(
+          `A modell nagyobb a ${MAX_DIMENSION_CM} cm-es nyomtatási térnél, ${formatNumber(
             result.autoScale.recommendedScale * 100,
             0
-          )}% mÃ©retarÃ¡nyt javaslunk.`
+          )}% méretarányt javaslunk.`
         );
       }
       if (result.warnings?.length) {
-        messageParts.push("EllenÅ‘rizd a lenti figyelmeztetÃ©seket a gyÃ¡rtÃ¡s elÅ‘tt.");
+        messageParts.push("Ellenőrizd a lenti figyelmeztetéseket a gyártás előtt.");
       }
       setStatus({
         type: result.warnings?.length ? "warning" : "success",
@@ -408,7 +408,7 @@ function QuoteCalculator() {
         message:
           error instanceof Error
             ? error.message
-            : "Ismeretlen hiba tÃ¶rtÃ©nt a fÃ¡jl ÃºjraelemzÃ©se sorÃ¡n.",
+            : "Ismeretlen hiba történt a fájl újraelemzése során.",
       });
     } finally {
       setLoading(false);
@@ -493,11 +493,11 @@ function QuoteCalculator() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="rounded-2xl bg-white/80 p-6 shadow-lg backdrop-blur">
-        <h2 className="text-2xl font-semibold text-sky-900">1. Modell feltÃ¶ltÃ©se</h2>
+        <h2 className="text-2xl font-semibold text-sky-900">1. Modell feltöltése</h2>
         <p className="mt-2 text-sm text-slate-600">
-          TÃ¶lts fel STL, STEP, OBJ vagy GLTF/GLB fÃ¡jlt. A rendszer automatikusan ellenÅ‘rzi, hogy a
-          modell belefÃ©r-e a {MAX_DIMENSION_CM} Ã— {MAX_DIMENSION_CM} Ã— {MAX_DIMENSION_CM} cm-es
-          nyomtatÃ¡si tÃ©rbe Ã©s feltÃ¡rja az esetleges problÃ©mÃ¡kat.
+          Tölts fel STL, STEP, OBJ vagy GLTF/GLB fájlt. A rendszer automatikusan ellenőrzi, hogy a
+          modell belefér-e a {MAX_DIMENSION_CM} x {MAX_DIMENSION_CM} x {MAX_DIMENSION_CM} cm-es
+          nyomtatási térbe és feltárja az esetleges problémákat.
         </p>
         <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/40 p-6 text-center text-sky-700 transition hover:border-sky-500 hover:bg-sky-100">
           <input
@@ -521,22 +521,22 @@ function QuoteCalculator() {
             />
           </svg>
           <span className="mt-3 font-medium">
-            {file ? file.name : "Kattints vagy hÃºzd ide a fÃ¡jlt"}
+            {file ? file.name : "Kattints vagy húzd ide a fájlt"}
           </span>
           <span className="mt-1 text-xs text-slate-500">
-            Maximum 50 MB, STL / STEP / OBJ / GLTF / GLB formÃ¡tumok
+            Maximum 50 MB, STL / STEP / OBJ / GLTF / GLB formátumok
           </span>
         </label>
-        {loading ? <p className="mt-4 text-sm text-slate-600">FeldolgozÃ¡s...</p> : null}
+        {loading ? <p className="mt-4 text-sm text-slate-600">Feldolgozás...</p> : null}
         {analysis ? (
           <div className="mt-6 space-y-6">
             <ModelPreview file={file} analysis={analysis} scaledSizeCm={scaledSizeCm} />
 
             <div>
-              <h3 className="text-lg font-semibold text-sky-900">Filament kivÃ¡lasztÃ¡sa</h3>
+              <h3 className="text-lg font-semibold text-sky-900">Filament kiválasztása</h3>
               <p className="mt-1 text-sm text-slate-600">
-                VÃ¡laszd ki a felhasznÃ¡lÃ¡si cÃ©lnak megfelelÅ‘ alapanyagot â€“ a kÃ¶ltsÃ©gbecslÃ©s azonnal
-                frissÃ¼l.
+                Válaszd ki a felhasználási célnak megfelelő alapanyagot - a költségbecslés azonnal
+                frissül.
               </p>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {FILAMENT_ORDER.map((material) => {
@@ -580,29 +580,29 @@ function QuoteCalculator() {
                     <h3 className="text-lg font-semibold text-sky-900">Modell adatai</h3>
                     <dl className="mt-3 space-y-2 text-sm text-slate-700">
                       <div>
-                        <dt className="font-medium text-slate-600">Eredeti mÃ©ret</dt>
+                        <dt className="font-medium text-slate-600">Eredeti méret</dt>
                         <dd>{rawDimensionsText}</dd>
                       </div>
                       <div>
-                        <dt className="font-medium text-slate-600">SkÃ¡lÃ¡zott mÃ©ret</dt>
+                        <dt className="font-medium text-slate-600">Skálázott méret</dt>
                         <dd>{scaledDimensionsText}</dd>
                       </div>
                       <div>
-                        <dt className="font-medium text-slate-600">TÃ©rfogat</dt>
-                        <dd>{formatNumber(quote.scaledVolumeCm3, 2)} cmÂ³</dd>
+                        <dt className="font-medium text-slate-600">Térfogat</dt>
+                        <dd>{formatNumber(quote.scaledVolumeCm3, 2)} cm3</dd>
                       </div>
                       {Number.isFinite(quote.scaledSurfaceAreaCm2) ? (
                         <div>
-                          <dt className="font-medium text-slate-600">FelÃ¼let</dt>
-                          <dd>{formatNumber(quote.scaledSurfaceAreaCm2, 2)} cmÂ²</dd>
+                          <dt className="font-medium text-slate-600">Felület</dt>
+                          <dd>{formatNumber(quote.scaledSurfaceAreaCm2, 2)} cm2</dd>
                         </div>
                       ) : null}
                       <div>
-                        <dt className="font-medium text-slate-600">BecsÃ¼lt tÃ¶meg</dt>
+                        <dt className="font-medium text-slate-600">Becsült tömeg</dt>
                         <dd>{formatMass(quote.massGrams)}</dd>
                       </div>
                       <div>
-                        <dt className="font-medium text-slate-600">FÃ¡jl egysÃ©ge</dt>
+                        <dt className="font-medium text-slate-600">Fájl egysége</dt>
                         <dd>
                           <div className="mt-1 space-y-1">
                             <select
@@ -612,7 +612,7 @@ function QuoteCalculator() {
                               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
                             >
                               <option value="auto">
-                                Automatikus felismerÃ©s
+                                Automatikus felismerés
                                 {detectedUnitLabel ? ` (${detectedUnitLabel})` : ""}
                               </option>
                               {UNIT_PRESETS.map((preset) => (
@@ -622,11 +622,11 @@ function QuoteCalculator() {
                               ))}
                             </select>
                             <p className="text-xs text-slate-500">
-                              Alkalmazott egysÃ©g: {analysis.rawUnit}
+                              Alkalmazott egység: {analysis.rawUnit}
                             </p>
                             {detectedUnitLabel ? (
                               <p className="text-xs text-slate-500">
-                                Automatikusan Ã©rzÃ©kelt egysÃ©g: {detectedUnitLabel}
+                                Automatikusan érzékelt egység: {detectedUnitLabel}
                               </p>
                             ) : null}
                           </div>
@@ -636,9 +636,9 @@ function QuoteCalculator() {
                   </div>
 
                   <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm">
-                    <h3 className="text-lg font-semibold text-emerald-800">KÃ¶ltsÃ©gbecslÃ©s</h3>
+                    <h3 className="text-lg font-semibold text-emerald-800">Költségbecslés</h3>
                     <p className="mt-1 text-sm text-emerald-700">
-                      {selectedMaterial.label} alapanyag â€“ {selectedMaterial.temperature}
+                      {selectedMaterial.label} alapanyag - {selectedMaterial.temperature}
                     </p>
                     {Number.isFinite(quote.materialPricePerGram) ? (
                       <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
@@ -646,44 +646,44 @@ function QuoteCalculator() {
                       </p>
                     ) : null}
                     <ul className="mt-3 space-y-1 text-sm text-emerald-800">
-                      <li>BecsÃ¼lt nyomtatÃ¡si idÅ‘: {formatNumber(quote.hours, 2)} Ã³ra</li>
-                      <li>AnyagkÃ¶ltsÃ©g: {formatCurrency(quote.materialCost)}</li>
-                      <li>GÃ©pidÅ‘ kÃ¶ltsÃ©g: {formatCurrency(quote.machineCost)}</li>
-                      <li>FelÃ¼let utÃ³munka: {formatCurrency(quote.finishingCost)}</li>
-                      <li>SzolgÃ¡ltatÃ¡si alapdÃ­j: {formatCurrency(quote.serviceFee)}</li>
+                      <li>Becsült nyomtatási idő: {formatNumber(quote.hours, 2)} óra</li>
+                      <li>Anyagköltség: {formatCurrency(quote.materialCost)}</li>
+                      <li>Gépidő költség: {formatCurrency(quote.machineCost)}</li>
+                      <li>Felület utómunka: {formatCurrency(quote.finishingCost)}</li>
+                      <li>Szolgáltatási alapdíj: {formatCurrency(quote.serviceFee)}</li>
                       <li className="pt-2 text-base font-semibold text-emerald-900">
-                        Ã–sszesen: {formatCurrency(quote.total)}
+                        Összesen: {formatCurrency(quote.total)}
                       </li>
                     </ul>
                   </div>
 
                   <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                    <h3 className="text-lg font-semibold text-sky-900">EllenÅ‘rzÃ©si eredmÃ©nyek</h3>
+                    <h3 className="text-lg font-semibold text-sky-900">Ellenőrzési eredmények</h3>
                     <ul className="mt-3 space-y-2 text-sm text-slate-700">
                       <li>
-                        <span className="font-medium text-slate-600">ZÃ¡rtsÃ¡g:</span>{" "}
+                        <span className="font-medium text-slate-600">Zártság:</span>{" "}
                         {analysis.manifold?.isWatertight === false
-                          ? "Nem zÃ¡rt felÃ¼let"
+                          ? "Nem zárt felület"
                           : analysis.manifold?.isWatertight === true
                             ? "Rendben"
-                            : "Nem Ã¡ll rendelkezÃ©sre adat"}
+                            : "Nem áll rendelkezésre adat"}
                       </li>
                       {Number.isFinite(analysis.manifold?.nonManifoldEdges) ? (
                         <li>
-                          <span className="font-medium text-slate-600">Nem-manifold Ã©lek:</span>{" "}
+                          <span className="font-medium text-slate-600">Nem-manifold élek:</span>{" "}
                           {analysis.manifold.nonManifoldEdges}
                         </li>
                       ) : null}
                       {analysis.intersections ? (
                         <>
                           <li>
-                            <span className="font-medium text-slate-600">Ã–nÃ¡tfedÃ©sek:</span>{" "}
+                            <span className="font-medium text-slate-600">Önátfedések:</span>{" "}
                             {analysis.intersections.selfIntersections}
                           </li>
                           <li>
-                            <span className="font-medium text-slate-600">VÃ©kony fal mintÃ¡k:</span>{" "}
+                            <span className="font-medium text-slate-600">Vékony fal minták:</span>{" "}
                             {formatPercentage(analysis.intersections.thinWallPercentage)} (min.
-                            vastagsÃ¡g:{" "}
+                            vastagság:{" "}
                             {Number.isFinite(analysis.intersections.minWallThicknessMm)
                               ? `${formatNumber(analysis.intersections.minWallThicknessMm, 2)} mm`
                               : "n.a."}
@@ -694,14 +694,14 @@ function QuoteCalculator() {
                       {analysis.overhangs ? (
                         <li>
                           <span className="font-medium text-slate-600">
-                            TÃ¡maszt igÃ©nylÅ‘ felÃ¼let:
+                            Támaszt igénylő felület:
                           </span>{" "}
                           {formatPercentage(analysis.overhangs.percentage)}
                         </li>
                       ) : null}
                       <li>
-                        <span className="font-medium text-slate-600">NormÃ¡l orientÃ¡ciÃ³:</span>{" "}
-                        {analysis.normalsFlipped ? "JavÃ­tva" : "Rendben"}
+                        <span className="font-medium text-slate-600">Normál orientáció:</span>{" "}
+                        {analysis.normalsFlipped ? "Javítva" : "Rendben"}
                       </li>
                     </ul>
                   </div>
@@ -709,7 +709,7 @@ function QuoteCalculator() {
 
                 {hasWarnings ? (
                   <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-800">
-                    <h4 className="text-base font-semibold">FigyelmeztetÃ©sek</h4>
+                    <h4 className="text-base font-semibold">Figyelmeztetések</h4>
                     <ul className="mt-2 list-disc space-y-1 pl-5">
                       {analysis.warnings.map((warning, index) => (
                         <li key={index}>{warning}</li>
@@ -740,13 +740,13 @@ function QuoteCalculator() {
       </div>
 
       <form onSubmit={handleSubmit} className="rounded-2xl bg-white/80 p-6 shadow-lg backdrop-blur">
-        <h2 className="text-2xl font-semibold text-sky-900">2. Kapcsolati adatok megadÃ¡sa</h2>
+        <h2 className="text-2xl font-semibold text-sky-900">2. Kapcsolati adatok megadása</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Add meg az elÃ©rhetÅ‘sÃ©gedet, hogy kollÃ©gÃ¡nk felvehessen veled a kapcsolatot.
+          Add meg az elérhetőségedet, hogy kollégánk felvehessen veled a kapcsolatot.
         </p>
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="flex flex-col text-sm font-medium text-slate-700">
-            NÃ©v
+            Név
             <input
               type="text"
               name="name"
@@ -769,7 +769,7 @@ function QuoteCalculator() {
           </label>
         </div>
         <label className="mt-4 flex flex-col text-sm font-medium text-slate-700">
-          SzÃ¡mlÃ¡zÃ¡si cÃ­m
+          Számlázási cím
           <input
             type="text"
             name="address"
@@ -780,14 +780,14 @@ function QuoteCalculator() {
           />
         </label>
         <label className="mt-4 flex flex-col text-sm font-medium text-slate-700">
-          MegjegyzÃ©s (opcionÃ¡lis)
+          Megjegyzés (opcionális)
           <textarea
             name="message"
             rows={4}
             value={formData.message}
             onChange={handleInputChange}
             className="mt-1 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
-            placeholder="RÃ¶viden Ã­rd le az elvÃ¡rÃ¡saidat, anyagtÃ­pust, hatÃ¡ridÅ‘t."
+            placeholder="Röviden írd le az elvárásaidat, anyagtípust, határidőt."
           />
         </label>
         <button
@@ -798,7 +798,7 @@ function QuoteCalculator() {
             sending ? "cursor-not-allowed bg-red-400" : "bg-red-600 hover:bg-red-500",
           ].join(" ")}
         >
-          {sending ? "KÃ¼ldÃ©s folyamatban..." : "AjÃ¡nlatkÃ©rÃ©s elkÃ¼ldÃ©se"}
+          {sending ? "Küldés folyamatban..." : "Ajánlatkérés elküldése"}
         </button>
       </form>
     </div>
@@ -812,11 +812,11 @@ export default function Ajanlatkeres() {
       <main className="flex flex-1 flex-col items-center px-4 py-12">
         <div className="mx-auto max-w-5xl text-center">
           <h1 className="text-4xl font-extrabold text-sky-900 md:text-5xl">
-            Online ajÃ¡nlatkÃ©rÃ©s 3D nyomtatÃ¡shoz
+            Online ajánlatkérés 3D nyomtatáshoz
           </h1>
           <p className="mt-4 text-lg text-slate-600">
-            TÃ¶ltsd fel a modelled, ellenÅ‘rizd a gyÃ¡rtÃ¡si paramÃ©tereket Ã©s kÃ¼ldd el nekÃ¼nk a
-            rÃ©szleteket nÃ©hÃ¡ny kattintÃ¡ssal.
+            Töltsd fel a modelled, ellenőrizd a gyártási paramétereket és küldd el nekünk a
+            részleteket néhány kattintással.
           </p>
         </div>
         <section className="mt-10 w-full">

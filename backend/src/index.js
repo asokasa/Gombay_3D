@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import connectDB from "./lib/connectDB.js";
+import { ensureCloudinaryFolders, hasCloudinaryCredentials } from "./lib/cloudinary.js";
 import ensureDefaultAdmin from "./lib/ensureDefaultAdmin.js";
 import authRoutes from "./routes/authRoutes.js";
 import quoteRoutes from "./routes/quoteRoutes.js";
@@ -71,6 +72,9 @@ async function start() {
   try {
     await connectDB();
     await ensureDefaultAdmin();
+    if (hasCloudinaryCredentials()) {
+      await ensureCloudinaryFolders();
+    }
     app.listen(PORT, () => {
       console.log(`API listening on port ${PORT}`);
     });

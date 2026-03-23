@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { api } from "../lib/api";
+import { api, apiBase } from "../lib/api";
 
 function formatCurrency(value) {
   if (!Number.isFinite(Number(value))) {
@@ -47,6 +48,8 @@ function formatDimensions(values) {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const token = localStorage.getItem("gombay_admin_token");
+  const [downloadingId, setDownloadingId] = useState("");
+  const [downloadError, setDownloadError] = useState("");
 
   const meQuery = useQuery({
     queryKey: ["admin", "me", token],
@@ -89,6 +92,51 @@ export default function AdminDashboard() {
   function handleLogout() {
     localStorage.removeItem("gombay_admin_token");
     navigate("/admin", { replace: true });
+  }
+
+  async function handleDownload(item) {
+    const downloadPath = item.file?.downloadPath || `/admin/quote-requests/${item.id}/download`;
+
+    setDownloadingId(item.id);
+    setDownloadError("");
+
+    try {
+      const response = await fetch(`${apiBase}${downloadPath}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let message = response.statusText;
+
+        if (text) {
+          try {
+            message = JSON.parse(text)?.error || message;
+          } catch (_error) {
+            message = text;
+          }
+        }
+
+        throw new Error(message || "Download failed");
+      }
+
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = objectUrl;
+      link.download = item.file?.originalName || `quote-request-${item.id}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      setDownloadError(error.message || "Download failed");
+    } finally {
+      setDownloadingId("");
+    }
   }
 
   return (
@@ -136,6 +184,10 @@ export default function AdminDashboard() {
             <p className="mt-4 text-sm text-red-600">{quoteRequestsQuery.error.message}</p>
           ) : null}
 
+          {!quoteRequestsQuery.isError && downloadError ? (
+            <p className="mt-4 text-sm text-red-600">{downloadError}</p>
+          ) : null}
+
           {!quoteRequestsQuery.isError && quoteRequests.length === 0 ? (
             <p className="mt-4 text-sm text-slate-600">No quote requests submitted yet.</p>
           ) : null}
@@ -172,14 +224,24 @@ export default function AdminDashboard() {
                       <span className="font-medium">File Size:</span> {formatSizeMb(item.file?.sizeBytes)}
                     </p>
                     {item.file?.url ? (
-                      <a
-                        href={item.file.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-block font-medium text-sky-700 hover:text-sky-500"
-                      >
-                        Open Uploaded File
-                      </a>
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        <a
+                          href={item.file.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block font-medium text-sky-700 hover:text-sky-500"
+                        >
+                          Open Uploaded File
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(item)}
+                          disabled={downloadingId === item.id}
+                          className="font-medium text-emerald-700 transition hover:text-emerald-600 disabled:cursor-not-allowed disabled:text-slate-400"
+                        >
+                          {downloadingId === item.id ? "Downloading..." : "Download File"}
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 </div>

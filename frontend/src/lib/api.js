@@ -1,4 +1,4 @@
-const base = import.meta.env.VITE_API_BASE || "/api";
+export const apiBase = import.meta.env.VITE_API_BASE || "/api";
 
 export async function api(path, { method = "GET", body, token } = {}) {
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
@@ -8,7 +8,7 @@ export async function api(path, { method = "GET", body, token } = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  const res = await fetch(`${base}${path}`, {
+  const res = await fetch(`${apiBase}${path}`, {
     method,
     headers,
     body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,

@@ -13,6 +13,7 @@ const quoteRequestSchema = new mongoose.Schema(
       mimeType: { type: String, default: "" },
       sizeBytes: { type: Number, required: true },
       url: { type: String, required: true },
+      downloadPath: { type: String, default: "" },
       publicId: { type: String, required: true },
       resourceType: { type: String, default: "raw" },
       format: { type: String, default: "" },

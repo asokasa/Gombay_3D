@@ -28,7 +28,19 @@ backend/    # Express + MongoDB API
    | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name for 3D file uploads |
    | `CLOUDINARY_API_KEY` | Cloudinary API key |
    | `CLOUDINARY_API_SECRET` | Cloudinary API secret |
-   | `CLOUDINARY_FOLDER` | Optional Cloudinary folder path for uploaded files |
+   | `CLOUDINARY_ROOT_FOLDER` | Optional root Cloudinary folder (defaults to `gombay3d`) |
+   | `CLOUDINARY_QUOTE_REQUESTS_FOLDER` | Optional quote request folder path override |
+   | `CLOUDINARY_REFERENCE_PICS_FOLDER` | Optional reference pictures subfolder name/path |
+   | `CLOUDINARY_PREMADE_ITEMS_FOLDER` | Optional premade items subfolder name/path |
+   | `CLOUDINARY_FOLDER` | Legacy quote request folder override |
+   | `SMTP_HOST` | SMTP host used for quote notification emails |
+   | `SMTP_PORT` | SMTP port (for example `587` or `465`) |
+   | `SMTP_SECURE` | Set to `true` when your SMTP server requires implicit TLS |
+   | `SMTP_USER` | SMTP username / sender account |
+   | `SMTP_PASS` | SMTP password or app password |
+   | `SMTP_FROM` | Optional sender address override |
+   | `QUOTE_NOTIFICATION_TO` | Optional comma-separated recipient list for quote notifications |
+   | `ADMIN_DASHBOARD_URL` | Optional admin dashboard URL included in notification emails |
 
 2. Install dependencies and start the development server:
 
@@ -45,6 +57,14 @@ backend/    # Express + MongoDB API
    - `POST /api/quote-requests` â€“ submit customer quote request, upload model file to Cloudinary, save data to MongoDB
    - `GET /api/admin/quote-requests` â€“ list submitted quote requests (requires `Authorization: Bearer <token>`)
    - `GET /api/health` â€“ simple health check
+
+   When Cloudinary credentials are configured, the backend ensures this folder structure exists on startup:
+
+   - `gombay3d/quote_requests`
+   - `gombay3d/reference_pics`
+   - `gombay3d/premade_items`
+
+   When SMTP is configured, the backend also sends a notification email for each new quote request.
 
 ## Frontend setup
 
