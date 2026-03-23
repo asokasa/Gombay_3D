@@ -8,7 +8,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import connectDB from "./lib/connectDB.js";
+import ensureDefaultAdmin from "./lib/ensureDefaultAdmin.js";
 import authRoutes from "./routes/authRoutes.js";
+import quoteRoutes from "./routes/quoteRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,10 +49,18 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/quote-requests", quoteRoutes);
+app.use("/api/admin", adminRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
   console.error(err);
+  if (err.name === "MulterError" && err.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ error: "Uploaded file exceeds the 50MB limit" });
+  }
+  if (err.message === "Unsupported file extension") {
+    return res.status(400).json({ error: "Unsupported file extension" });
+  }
   const status = err.statusCode || 500;
   res.status(status).json({ error: err.message || "Internal server error" });
 });
@@ -59,6 +70,7 @@ const PORT = process.env.PORT || 5000;
 async function start() {
   try {
     await connectDB();
+    await ensureDefaultAdmin();
     app.listen(PORT, () => {
       console.log(`API listening on port ${PORT}`);
     });

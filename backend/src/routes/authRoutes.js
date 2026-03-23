@@ -11,6 +11,12 @@ const router = Router();
 router.post(
   "/register",
   validateRequest([
+    body("username")
+      .optional()
+      .isLength({ min: 3 })
+      .withMessage("Username must be at least 3 characters")
+      .matches(/^[a-zA-Z0-9._-]+$/)
+      .withMessage("Username contains invalid characters"),
     body("email").isEmail().withMessage("Valid email is required"),
     body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
     body("name").notEmpty().withMessage("Name is required"),
@@ -22,7 +28,13 @@ router.post(
 router.post(
   "/login",
   validateRequest([
-    body("email").isEmail().withMessage("Valid email is required"),
+    body().custom((value) => {
+      const hasIdentifier = Boolean(value?.identifier || value?.email);
+      if (!hasIdentifier) {
+        throw new Error("Username or email is required");
+      }
+      return true;
+    }),
     body("password").notEmpty().withMessage("Password is required"),
   ]),
   asyncHandler(loginAdmin),

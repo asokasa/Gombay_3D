@@ -16,7 +16,7 @@ export default async function authenticate(req, res, next) {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    req.admin = { id: admin._id.toString(), email: admin.email, name: admin.name };
+    req.admin = { id: admin._id.toString(), username: admin.username || null, email: admin.email, name: admin.name };
     next();
   } catch (error) {
     console.error("Authentication error", error);

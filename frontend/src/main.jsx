@@ -9,6 +9,7 @@ import Posts from "./routes/Posts";
 import Kapcsolatok from "./routes/Kapcsolatok";
 import Ajanlatkeres from "./routes/Ajanlatkeres";
 import AdminLogin from "./routes/AdminLogin";
+import AdminDashboard from "./routes/AdminDashboard";
 
 const router = createBrowserRouter([
   { path: "/", element: <Home /> },
@@ -16,6 +17,7 @@ const router = createBrowserRouter([
   { path: "/kapcsolatok", element: <Kapcsolatok /> },
   { path: "/ajanlatkeres", element: <Ajanlatkeres /> },
   { path: "/admin", element: <AdminLogin /> },
+  { path: "/admin/dashboard", element: <AdminDashboard /> },
 ]);
 const qc = new QueryClient();
 
