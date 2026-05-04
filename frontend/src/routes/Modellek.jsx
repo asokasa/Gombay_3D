@@ -1,34 +1,69 @@
+import { useQuery } from "@tanstack/react-query";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { api } from "../lib/api";
 
-const models = [
+const fallbackModels = [
   {
     title: "Asztali rendszerezők",
-    category: "Otthon és iroda",
     description: "Kábelvezetők, tartók és kis tárolók, amelyek azonnal nyomtathatók.",
     image: "/background.jpg",
+    priceHuf: 2500,
+    size: "12 x 8 x 4 cm",
   },
   {
     title: "Műszaki segédelemek",
-    category: "Prototípus és javítás",
     description: "Távtartók, burkolatminták és szerelési segédletek gyors teszteléshez.",
     image: "/nagyobb_nyomtato.png",
+    priceHuf: 3200,
+    size: "10 x 10 x 6 cm",
   },
   {
     title: "Dekor és ajándék",
-    category: "Személyes tárgyak",
     description: "Letisztult, praktikus modellek ajándéknak, polcra vagy eseményekre.",
     image: "/Nyomtatok/Bambulab A1mini.webp",
+    priceHuf: 4500,
+    size: "15 x 12 x 8 cm",
   },
   {
     title: "Egyedi alapmodellek",
-    category: "Testreszabható",
     description: "Kész kiindulási modellek, amelyeket méretben vagy felirattal személyre szabunk.",
     image: "/Nyomtatok/nagyobb_nyomtato.webp",
+    priceHuf: 5900,
+    size: "18 x 12 x 10 cm",
   },
 ];
 
+function formatCurrency(value) {
+  if (!Number.isFinite(Number(value))) {
+    return "Ár egyeztetés szerint";
+  }
+
+  return new Intl.NumberFormat("hu-HU", {
+    style: "currency",
+    currency: "HUF",
+    maximumFractionDigits: 0,
+  }).format(Math.round(Number(value)));
+}
+
 export default function Modellek() {
+  const premadeModelsQuery = useQuery({
+    queryKey: ["premade-models"],
+    queryFn: () => api("/premade-models"),
+    retry: false,
+  });
+  const uploadedModels = premadeModelsQuery.data?.items ?? [];
+  const models =
+    uploadedModels.length > 0
+      ? uploadedModels.map((item) => ({
+          title: item.title,
+          description: item.description,
+          image: item.image?.url,
+          priceHuf: item.priceHuf,
+          size: item.size,
+        }))
+      : fallbackModels;
+
   return (
     <div className="neon-page flex min-h-screen flex-col">
       <Navbar />
@@ -60,15 +95,21 @@ export default function Modellek() {
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {models.map((model) => (
                 <article key={model.title} className="neon-card flex h-full flex-col overflow-hidden">
-                  <img src={model.image} alt="" className="h-40 w-full object-cover" />
+                  <img src={model.image} alt={model.title} className="h-40 w-full object-cover" />
                   <div className="flex flex-1 flex-col p-5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-red-300">
-                      {model.category}
-                    </p>
-                    <h2 className="mt-2 text-lg font-semibold text-sky-100">{model.title}</h2>
+                    <h2 className="text-lg font-semibold text-sky-100">{model.title}</h2>
                     <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-400">
                       {model.description}
                     </p>
+                    <div className="mt-4 space-y-1 border-t border-slate-700 pt-4 text-sm text-slate-300">
+                      <p>
+                        <span className="font-semibold text-sky-100">Ár:</span>{" "}
+                        {formatCurrency(model.priceHuf)}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-sky-100">Méret:</span> {model.size}
+                      </p>
+                    </div>
                   </div>
                 </article>
               ))}

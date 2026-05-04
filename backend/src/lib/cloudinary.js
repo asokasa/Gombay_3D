@@ -127,3 +127,47 @@ export async function uploadRawFileBuffer(buffer, originalFileName) {
     uploadStream.end(buffer);
   });
 }
+
+export async function uploadImageBuffer(buffer, originalFileName, folderName) {
+  configureCloudinary();
+
+  const folders = getCloudinaryFolders();
+  const folder = folderName || folders.referencePics;
+  const parsedName = path.parse(originalFileName || "image");
+  const publicIdBase = normalizePublicIdBase(parsedName.name);
+  const publicId = `${publicIdBase}-${Date.now()}`;
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "image",
+        folder,
+        public_id: publicId,
+        use_filename: false,
+        overwrite: false,
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(result);
+      },
+    );
+
+    uploadStream.end(buffer);
+  });
+}
+
+export async function deleteUploadedFile(publicId, resourceType = "raw") {
+  if (!publicId || !hasCloudinaryCredentials()) {
+    return null;
+  }
+
+  configureCloudinary();
+
+  return cloudinary.uploader.destroy(publicId, {
+    resource_type: resourceType || "raw",
+    invalidate: true,
+  });
+}

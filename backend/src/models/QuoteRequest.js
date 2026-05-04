@@ -32,7 +32,7 @@ const quoteRequestSchema = new mongoose.Schema(
     detectedUnitLabel: { type: String, default: "" },
     status: {
       type: String,
-      enum: ["new", "in_progress", "done"],
+      enum: ["new", "in_progress", "approved", "done", "archived"],
       default: "new",
     },
   },

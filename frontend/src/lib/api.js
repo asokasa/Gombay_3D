@@ -20,7 +20,7 @@ export async function api(path, { method = "GET", body, token } = {}) {
   if (text) {
     try {
       data = JSON.parse(text);
-    } catch (_error) {
+    } catch {
       data = { error: text };
     }
   }

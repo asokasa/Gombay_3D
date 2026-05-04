@@ -4,9 +4,10 @@ import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import QuoteRequest from "../models/QuoteRequest.js";
 import { sendQuoteRequestNotification } from "../lib/email.js";
-import { uploadRawFileBuffer } from "../lib/cloudinary.js";
+import { deleteUploadedFile, uploadRawFileBuffer } from "../lib/cloudinary.js";
 
 const SUPPORTED_EXTENSIONS = new Set([".stl", ".obj", ".step", ".stp", ".gltf", ".glb"]);
+const ADMIN_STATUS_VALUES = new Set(["new", "in_progress", "approved", "done", "archived"]);
 
 function parseJsonField(value, fallbackValue) {
   if (!value) {
@@ -117,8 +118,10 @@ export async function listQuoteRequests(req, res) {
   const limit = Number.isFinite(requestedLimit)
     ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 250)
     : 100;
+  const requestedStatus = String(req.query.status || "").trim();
+  const filter = ADMIN_STATUS_VALUES.has(requestedStatus) ? { status: requestedStatus } : {};
 
-  const items = await QuoteRequest.find().sort({ createdAt: -1 }).limit(limit).lean();
+  const items = await QuoteRequest.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
 
   return res.json({
     items: items.map((item) => ({
@@ -136,6 +139,68 @@ export async function listQuoteRequests(req, res) {
       updatedAt: item.updatedAt,
     })),
   });
+}
+
+export async function updateQuoteRequestStatus(req, res) {
+  const { id } = req.params;
+  const status = String(req.body?.status || "").trim();
+
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid quote request id" });
+  }
+
+  if (!ADMIN_STATUS_VALUES.has(status)) {
+    return res.status(400).json({ error: "Invalid quote request status" });
+  }
+
+  const item = await QuoteRequest.findByIdAndUpdate(
+    id,
+    { status },
+    { new: true, runValidators: true },
+  ).lean();
+
+  if (!item) {
+    return res.status(404).json({ error: "Quote request not found" });
+  }
+
+  return res.json({
+    item: {
+      id: item._id.toString(),
+      customer: item.customer,
+      file: item.file,
+      material: item.material,
+      analysis: item.analysis,
+      quote: item.quote,
+      scaledSizeCm: item.scaledSizeCm,
+      unitOverride: item.unitOverride,
+      detectedUnitLabel: item.detectedUnitLabel,
+      status: item.status,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    },
+  });
+}
+
+export async function deleteQuoteRequest(req, res) {
+  const { id } = req.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid quote request id" });
+  }
+
+  const item = await QuoteRequest.findById(id);
+
+  if (!item) {
+    return res.status(404).json({ error: "Quote request not found" });
+  }
+
+  if (item.file?.publicId) {
+    await deleteUploadedFile(item.file.publicId, item.file.resourceType);
+  }
+
+  await item.deleteOne();
+
+  return res.status(204).send();
 }
 
 export async function downloadQuoteRequestFile(req, res) {

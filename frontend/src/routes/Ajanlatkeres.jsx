@@ -1,5 +1,6 @@
 ﻿import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, extend, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { useQuery } from "@tanstack/react-query";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import {
@@ -239,6 +240,119 @@ function formatPercentage(value) {
     return "-";
   }
   return `${formatNumber(value, 1)}%`;
+}
+
+function PremadeModelCatalog({ onBack }) {
+  const premadeModelsQuery = useQuery({
+    queryKey: ["premade-models"],
+    queryFn: () => api("/premade-models"),
+    retry: false,
+  });
+  const models = premadeModelsQuery.data?.items ?? [];
+
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-6">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div>
+          <p className="neon-kicker">Előre elkészített modellek</p>
+          <h2 className="neon-heading mt-2 text-3xl font-extrabold md:text-4xl">
+            Válassz a kész modellek közül
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="neon-button-secondary rounded-md px-4 py-2 text-sm"
+        >
+          Vissza
+        </button>
+      </div>
+
+      {premadeModelsQuery.isLoading ? (
+        <p className="text-sm text-slate-500">Modellek betöltése...</p>
+      ) : null}
+
+      {premadeModelsQuery.isError ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {premadeModelsQuery.error.message}
+        </p>
+      ) : null}
+
+      {!premadeModelsQuery.isLoading && !premadeModelsQuery.isError && models.length === 0 ? (
+        <p className="neon-panel rounded-lg p-5 text-sm text-slate-500">
+          Jelenleg nincs feltöltött előre elkészített modell.
+        </p>
+      ) : null}
+
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {models.map((model) => (
+          <article key={model.id} className="neon-card flex h-full flex-col overflow-hidden">
+            <img
+              src={model.image?.url}
+              alt={model.title}
+              className="h-56 w-full object-cover"
+            />
+            <div className="flex flex-1 flex-col p-5">
+              <h3 className="text-xl font-semibold text-sky-100">{model.title}</h3>
+              <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-400">
+                {model.description}
+              </p>
+              <div className="mt-5 grid gap-3 border-t border-slate-700 pt-4 text-sm text-slate-300 sm:grid-cols-2">
+                <p>
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Ár
+                  </span>
+                  <span className="font-semibold text-sky-100">{formatCurrency(model.priceHuf)}</span>
+                </p>
+                <p>
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Méret
+                  </span>
+                  <span className="font-semibold text-sky-100">{model.size}</span>
+                </p>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuoteTypeChooser({ onSelect }) {
+  return (
+    <div className="mx-auto grid w-full max-w-5xl gap-5 md:grid-cols-2">
+      <button
+        type="button"
+        onClick={() => onSelect("custom")}
+        className="neon-card flex min-h-56 flex-col justify-between rounded-lg p-6 text-left transition hover:border-sky-300"
+      >
+        <div>
+          <p className="neon-kicker">Saját modell</p>
+          <h2 className="mt-3 text-2xl font-bold text-sky-100">Feltöltöm a saját 3D fájlomat</h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-400">
+            STL, STEP, OBJ vagy GLTF/GLB fájlból automatikus méretellenőrzés és árbecslés.
+          </p>
+        </div>
+        <span className="mt-6 inline-flex font-semibold text-sky-100">Kalkulátor megnyitása</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onSelect("premade")}
+        className="neon-card flex min-h-56 flex-col justify-between rounded-lg p-6 text-left transition hover:border-sky-300"
+      >
+        <div>
+          <p className="neon-kicker">Előre elkészített modell</p>
+          <h2 className="mt-3 text-2xl font-bold text-sky-100">Kész modellek közül választok</h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-400">
+            Az admin felületen feltöltött modellek képpel, leírással, árral és mérettel.
+          </p>
+        </div>
+        <span className="mt-6 inline-flex font-semibold text-sky-100">Modellek megtekintése</span>
+      </button>
+    </div>
+  );
 }
 
 function QuoteCalculator() {
@@ -806,6 +920,8 @@ function QuoteCalculator() {
 }
 
 export default function Ajanlatkeres() {
+  const [requestType, setRequestType] = useState("");
+
   return (
     <div className="neon-page flex min-h-screen flex-col">
       <Navbar />
@@ -815,12 +931,30 @@ export default function Ajanlatkeres() {
             Online ajánlatkérés 3D nyomtatáshoz
           </h1>
           <p className="mt-4 text-lg text-slate-600">
-            Töltsd fel a modelled, ellenőrizd a gyártási paramétereket és küldd el nekünk a
-            részleteket néhány kattintással.
+            Válassz saját 3D modell feltöltése és előre elkészített modell között.
           </p>
         </div>
         <section className="mt-10 w-full">
-          <QuoteCalculator />
+          {!requestType ? <QuoteTypeChooser onSelect={setRequestType} /> : null}
+
+          {requestType === "custom" ? (
+            <div className="space-y-6">
+              <div className="mx-auto flex w-full max-w-5xl justify-start">
+                <button
+                  type="button"
+                  onClick={() => setRequestType("")}
+                  className="neon-button-secondary rounded-md px-4 py-2 text-sm"
+                >
+                  Vissza
+                </button>
+              </div>
+              <QuoteCalculator />
+            </div>
+          ) : null}
+
+          {requestType === "premade" ? (
+            <PremadeModelCatalog onBack={() => setRequestType("")} />
+          ) : null}
         </section>
       </main>
       <Footer />

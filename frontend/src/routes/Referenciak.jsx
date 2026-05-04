@@ -1,26 +1,42 @@
+import { useQuery } from "@tanstack/react-query";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { api } from "../lib/api";
 
-const galleryImages = [
+const fallbackGalleryImages = [
   {
     src: "/background.jpg",
-    alt: "3D nyomtatott referencia",
+    title: "3D nyomtatott referencia",
   },
   {
     src: "/nagyobb_nyomtato.png",
-    alt: "3D nyomtatási referencia",
+    title: "3D nyomtatási referencia",
   },
   {
     src: "/Nyomtatok/Bambulab A1mini.webp",
-    alt: "3D nyomtatási referencia",
+    title: "Bambulab referencia",
   },
   {
     src: "/Nyomtatok/nagyobb_nyomtato.webp",
-    alt: "3D nyomtatási referencia",
+    title: "Nagyobb nyomtató referencia",
   },
 ];
 
 export default function Referenciak() {
+  const referenceImagesQuery = useQuery({
+    queryKey: ["reference-images"],
+    queryFn: () => api("/reference-images"),
+    retry: false,
+  });
+  const uploadedImages = referenceImagesQuery.data?.items ?? [];
+  const galleryImages =
+    uploadedImages.length > 0
+      ? uploadedImages.map((item) => ({
+          src: item.image?.url,
+          title: item.title,
+        }))
+      : fallbackGalleryImages;
+
   return (
     <div className="neon-page flex min-h-screen flex-col">
       <Navbar />
@@ -33,7 +49,8 @@ export default function Referenciak() {
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {galleryImages.map((image) => (
               <figure key={image.src} className="neon-card overflow-hidden">
-                <img src={image.src} alt={image.alt} className="aspect-square w-full object-cover" />
+                <img src={image.src} alt={image.title} className="aspect-square w-full object-cover" />
+                <figcaption className="p-4 text-sm font-semibold text-sky-100">{image.title}</figcaption>
               </figure>
             ))}
           </div>

@@ -13,6 +13,7 @@ import ensureDefaultAdmin from "./lib/ensureDefaultAdmin.js";
 import authRoutes from "./routes/authRoutes.js";
 import quoteRoutes from "./routes/quoteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import mediaRoutes from "./routes/mediaRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +53,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/quote-requests", quoteRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api", mediaRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
@@ -61,6 +63,9 @@ app.use((err, _req, res, _next) => {
   }
   if (err.message === "Unsupported file extension") {
     return res.status(400).json({ error: "Unsupported file extension" });
+  }
+  if (err.message === "Unsupported image file extension") {
+    return res.status(400).json({ error: "Unsupported image file extension" });
   }
   const status = err.statusCode || 500;
   res.status(status).json({ error: err.message || "Internal server error" });
