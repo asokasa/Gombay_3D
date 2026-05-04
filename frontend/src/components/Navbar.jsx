@@ -1,25 +1,38 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+
   function handleNavigate() {
     setOpen(false);
   }
+
+  const navLinkClass = ({ isActive }) =>
+    [
+      "rounded-md px-4 py-3 text-sm font-semibold uppercase tracking-wide transition md:px-2 md:py-2",
+      isActive
+        ? "text-cyan-200 shadow-[0_0_18px_rgba(0,153,255,0.28)]"
+        : "text-cyan-100/80 hover:text-red-300",
+    ].join(" ");
+
   return (
-    <header className="bg-white  border-b border-sky-100">
-      <div className="mx-auto flex max-w-6xl items-center justify-between p-4">
-        <Link to="/" onClick={handleNavigate} className="text-2xl font-bold text-sky-600">
+    <header className="sticky top-0 z-50 border-b border-cyan-400/25 bg-[#05070d]/90 shadow-[0_0_28px_rgba(0,149,255,0.22)] backdrop-blur-xl">
+      <div className="relative mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <Link to="/" onClick={handleNavigate} className="flex items-center">
           <img
             src="/Logo_hatter_nelkul.webp"
-            alt="Peti 3D nyomtatás logó"
-            className="h-10 w-auto md:h-12"
+            alt="Gombay 3D logo"
+            className="h-10 w-auto drop-shadow-[0_0_14px_rgba(0,149,255,0.75)] md:h-12"
           />
         </Link>
+
         <button
-          className="md:hidden text-sky-800"
+          type="button"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-cyan-400/40 bg-cyan-400/10 text-cyan-100 shadow-[0_0_16px_rgba(0,149,255,0.26)] transition hover:border-red-400/70 hover:text-red-200 md:hidden"
           onClick={() => setOpen(!open)}
-          aria-label="Toggle navigation"
+          aria-label="Toggle navigation menu"
+          aria-expanded={open}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -29,51 +42,53 @@ export default function Navbar() {
             stroke="currentColor"
             className="h-6 w-6"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3.75 5.25h16.5m-16.5 6h16.5m-16.5 6h16.5"
-            />
+            {open ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            ) : (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.75 5.25h16.5m-16.5 6h16.5m-16.5 6h16.5"
+              />
+            )}
           </svg>
         </button>
+
         <nav
           className={[
             open ? "block" : "hidden",
-            "absolute left-0 right-0 top-full border-b border-sky-100 bg-white md:static md:block md:border-none",
+            "absolute left-4 right-4 top-[calc(100%+0.75rem)] z-50 rounded-lg border border-cyan-400/30 bg-[#070b14]/95 p-2 shadow-[0_0_30px_rgba(0,149,255,0.28)] backdrop-blur-xl md:static md:block md:border-none md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0",
           ].join(" ")}
         >
-          <ul className="flex flex-col items-center gap-4 p-4 md:flex-row md:gap-6 md:p-0">
+          <ul className="flex flex-col items-stretch gap-1 md:flex-row md:items-center md:gap-3">
             <li>
               <a
-                href="#features"
-                className="text-sky-800 hover:text-red-500"
+                href="/#features"
+                className="block rounded-md px-4 py-3 text-sm font-semibold uppercase tracking-wide text-cyan-100/80 transition hover:text-red-300 md:px-2 md:py-2"
                 onClick={handleNavigate}
               >
                 Szolgáltatások
               </a>
             </li>
             <li>
-              <Link
-                to="/kapcsolatok"
-                className="text-sky-800 hover:text-red-500"
-                onClick={handleNavigate}
-              >
-                Kapcsolatok
-              </Link>
+              <NavLink to="/modellek" className={navLinkClass} onClick={handleNavigate}>
+                Modellek
+              </NavLink>
             </li>
             <li>
-              <Link
-                to="/admin"
-                className="text-sky-800 hover:text-red-500"
-                onClick={handleNavigate}
-              >
-                Admin
-              </Link>
+              <NavLink to="/referenciak" className={navLinkClass} onClick={handleNavigate}>
+                Referenciák
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/kapcsolatok" className={navLinkClass} onClick={handleNavigate}>
+                Kapcsolatok
+              </NavLink>
             </li>
             <li>
               <Link
                 to="/ajanlatkeres"
-                className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-500"
+                className="mt-1 inline-flex w-full items-center justify-center rounded-md border border-red-400/80 bg-red-500 px-4 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-[0_0_20px_rgba(255,45,85,0.4)] transition hover:bg-red-400 md:mt-0 md:w-auto md:py-2"
                 onClick={handleNavigate}
               >
                 Ajánlatkérés

@@ -32,18 +32,18 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="neon-page min-h-screen">
       <Navbar />
       <main className="mx-auto flex max-w-md flex-col gap-6 px-4 py-12">
         <div>
-          <h1 className="text-3xl font-bold text-sky-900">Admin Login</h1>
+          <h1 className="neon-heading text-3xl font-bold">Admin Login</h1>
           <p className="mt-2 text-slate-600">
             Sign in to access admin features. After a successful login, a JSON web token is stored in your browser
             for future admin actions.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <form onSubmit={handleSubmit} className="neon-panel rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
           <label className="block text-sm font-medium text-slate-700">
             Username or email
             <input
@@ -69,7 +69,7 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className="mt-6 w-full rounded-md bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-red-300"
+            className="neon-button mt-6 w-full px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loginMutation.isPending ? "Signing in..." : "Sign in"}
           </button>

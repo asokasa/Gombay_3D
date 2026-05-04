@@ -77,7 +77,7 @@ export default function AdminDashboard() {
   const isLoading = meQuery.isLoading || quoteRequestsQuery.isLoading;
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="neon-page min-h-screen">
         <Navbar />
         <main className="mx-auto max-w-6xl px-4 py-12">
           <p className="text-slate-600">Loading dashboard...</p>
@@ -140,13 +140,13 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="neon-page min-h-screen">
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-12">
-        <div className="flex flex-col justify-between gap-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 md:flex-row md:items-center">
+        <div className="neon-panel flex flex-col justify-between gap-4 rounded-lg p-6 shadow-sm ring-1 ring-slate-200 md:flex-row md:items-center">
           <div>
             <p className="text-sm text-slate-500">Admin Dashboard</p>
-            <h1 className="text-2xl font-bold text-sky-900">Welcome, {admin?.name || "Admin"}</h1>
+            <h1 className="neon-heading text-2xl font-bold">Welcome, {admin?.name || "Admin"}</h1>
             <p className="mt-1 text-sm text-slate-600">
               Signed in as <span className="font-medium text-slate-800">{admin?.username || admin?.email}</span>
             </p>
@@ -154,28 +154,28 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-md bg-slate-800 px-4 py-2 font-semibold text-white transition hover:bg-slate-700"
+            className="neon-button-secondary rounded-md px-4 py-2 font-semibold transition"
           >
             Log out
           </button>
         </div>
 
         <section className="mt-6 grid gap-4 md:grid-cols-3">
-          <article className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <article className="neon-card rounded-lg p-5 shadow-sm ring-1 ring-slate-200">
             <p className="text-sm text-slate-500">Total Requests</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">{quoteRequests.length}</p>
           </article>
-          <article className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <article className="neon-card rounded-lg p-5 shadow-sm ring-1 ring-slate-200">
             <p className="text-sm text-slate-500">Account</p>
             <p className="mt-2 text-lg font-semibold text-emerald-700">Authenticated</p>
           </article>
-          <article className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <article className="neon-card rounded-lg p-5 shadow-sm ring-1 ring-slate-200">
             <p className="text-sm text-slate-500">Latest Sync</p>
             <p className="mt-2 text-lg font-semibold text-slate-900">{formatDate(new Date().toISOString())}</p>
           </article>
         </section>
 
-        <section className="mt-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section className="neon-panel mt-6 rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-semibold text-sky-900">Incoming Quote Requests</h2>
           </div>
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
 
           <div className="mt-4 space-y-4">
             {quoteRequests.map((item) => (
-              <article key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <article key={item.id} className="neon-card rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900">{item.customer?.name || "Unnamed"}</h3>

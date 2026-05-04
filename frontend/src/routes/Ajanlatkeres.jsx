@@ -148,7 +148,7 @@ function ModelPreview({ file, analysis, scaledSizeCm }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="h-80 w-full overflow-hidden rounded-xl border border-sky-100 bg-slate-900/95">
+      <div className="h-72 w-full overflow-hidden rounded-lg border border-sky-100 bg-slate-900/95 shadow-[0_0_26px_rgba(0,149,255,0.18)] md:h-80">
         <Canvas camera={{ position: [0, 0, 12], fov: 60 }} shadows>
           <color attach="background" args={["#0f172a"]} />
           <ambientLight intensity={0.6} />
@@ -491,15 +491,15 @@ function QuoteCalculator() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div className="rounded-2xl bg-white/80 p-6 shadow-lg backdrop-blur">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
+      <div className="neon-panel rounded-lg p-5 shadow-lg backdrop-blur md:p-6">
         <h2 className="text-2xl font-semibold text-sky-900">1. Modell feltöltése</h2>
         <p className="mt-2 text-sm text-slate-600">
           Tölts fel STL, STEP, OBJ vagy GLTF/GLB fájlt. A rendszer automatikusan ellenőrzi, hogy a
           modell belefér-e a {MAX_DIMENSION_CM} x {MAX_DIMENSION_CM} x {MAX_DIMENSION_CM} cm-es
           nyomtatási térbe és feltárja az esetleges problémákat.
         </p>
-        <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/40 p-6 text-center text-sky-700 transition hover:border-sky-500 hover:bg-sky-100">
+        <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-sky-300 bg-sky-50/40 p-6 text-center text-sky-700 transition hover:border-sky-500 hover:bg-sky-100">
           <input
             type="file"
             accept=".stl,.STL,.obj,.OBJ,.step,.STEP,.stp,.STP,.gltf,.GLTF,.glb,.GLB"
@@ -547,7 +547,7 @@ function QuoteCalculator() {
                       type="button"
                       onClick={() => setSelectedFilament(material.key)}
                       className={[
-                        "flex h-full flex-col rounded-xl border p-4 text-left transition",
+                        "flex h-full flex-col rounded-lg border p-4 text-left transition",
                         isActive
                           ? "border-sky-400 bg-sky-100/70 shadow"
                           : "border-slate-200 bg-white/70 hover:border-sky-300 hover:bg-sky-50/60",
@@ -576,7 +576,7 @@ function QuoteCalculator() {
             {quote ? (
               <div className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-3">
-                  <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4 shadow-sm">
+                  <div className="rounded-lg border border-sky-100 bg-sky-50/60 p-4 shadow-sm">
                     <h3 className="text-lg font-semibold text-sky-900">Modell adatai</h3>
                     <dl className="mt-3 space-y-2 text-sm text-slate-700">
                       <div>
@@ -635,7 +635,7 @@ function QuoteCalculator() {
                     </dl>
                   </div>
 
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm">
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm">
                     <h3 className="text-lg font-semibold text-emerald-800">Költségbecslés</h3>
                     <p className="mt-1 text-sm text-emerald-700">
                       {selectedMaterial.label} alapanyag - {selectedMaterial.temperature}
@@ -657,7 +657,7 @@ function QuoteCalculator() {
                     </ul>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                  <div className="rounded-lg border border-slate-200 bg-white/80 p-4 shadow-sm">
                     <h3 className="text-lg font-semibold text-sky-900">Ellenőrzési eredmények</h3>
                     <ul className="mt-3 space-y-2 text-sm text-slate-700">
                       <li>
@@ -708,7 +708,7 @@ function QuoteCalculator() {
                 </div>
 
                 {hasWarnings ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-800">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-800">
                     <h4 className="text-base font-semibold">Figyelmeztetések</h4>
                     <ul className="mt-2 list-disc space-y-1 pl-5">
                       {analysis.warnings.map((warning, index) => (
@@ -724,7 +724,7 @@ function QuoteCalculator() {
         {status.message ? (
           <div
             className={[
-              "mt-4 rounded-xl border p-4 text-sm",
+              "mt-4 rounded-lg border p-4 text-sm",
               status.type === "error"
                 ? "border-red-200 bg-red-50 text-red-700"
                 : status.type === "success"
@@ -739,7 +739,7 @@ function QuoteCalculator() {
         ) : null}
       </div>
 
-      <form onSubmit={handleSubmit} className="rounded-2xl bg-white/80 p-6 shadow-lg backdrop-blur">
+      <form onSubmit={handleSubmit} className="neon-panel rounded-lg p-5 shadow-lg backdrop-blur md:p-6">
         <h2 className="text-2xl font-semibold text-sky-900">2. Kapcsolati adatok megadása</h2>
         <p className="mt-2 text-sm text-slate-600">
           Add meg az elérhetőségedet, hogy kollégánk felvehessen veled a kapcsolatot.
@@ -752,7 +752,7 @@ function QuoteCalculator() {
               name="name"
               value={formData.name}
               onChange={handleInputChange}
-              className="mt-1 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
+              className="mt-1 rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
               required
             />
           </label>
@@ -763,7 +763,7 @@ function QuoteCalculator() {
               name="email"
               value={formData.email}
               onChange={handleInputChange}
-              className="mt-1 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
+              className="mt-1 rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
               required
             />
           </label>
@@ -775,7 +775,7 @@ function QuoteCalculator() {
             name="address"
             value={formData.address}
             onChange={handleInputChange}
-            className="mt-1 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
+            className="mt-1 rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
             required
           />
         </label>
@@ -786,7 +786,7 @@ function QuoteCalculator() {
             rows={4}
             value={formData.message}
             onChange={handleInputChange}
-            className="mt-1 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
+            className="mt-1 rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-slate-800 focus:border-sky-400 focus:outline-none"
             placeholder="Röviden írd le az elvárásaidat, anyagtípust, határidőt."
           />
         </label>
@@ -794,7 +794,7 @@ function QuoteCalculator() {
           type="submit"
           disabled={sending}
           className={[
-            "mt-6 inline-flex items-center justify-center rounded-lg px-6 py-3 font-semibold text-white transition",
+            "mt-6 inline-flex w-full items-center justify-center rounded-md px-6 py-3 font-semibold text-white transition sm:w-auto",
             sending ? "cursor-not-allowed bg-red-400" : "bg-red-600 hover:bg-red-500",
           ].join(" ")}
         >
@@ -807,11 +807,11 @@ function QuoteCalculator() {
 
 export default function Ajanlatkeres() {
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-sky-50 via-white to-sky-100">
+    <div className="neon-page flex min-h-screen flex-col">
       <Navbar />
-      <main className="flex flex-1 flex-col items-center px-4 py-12">
+      <main className="flex flex-1 flex-col items-center px-4 py-10 md:py-14">
         <div className="mx-auto max-w-5xl text-center">
-          <h1 className="text-4xl font-extrabold text-sky-900 md:text-5xl">
+          <h1 className="neon-heading text-4xl font-extrabold md:text-5xl">
             Online ajánlatkérés 3D nyomtatáshoz
           </h1>
           <p className="mt-4 text-lg text-slate-600">

@@ -1,33 +1,49 @@
 const features = [
   {
     title: "Gyors kivitelezés",
-    text: "XY gépeiink a legjobbak a bizniszben.",
-    img: "https://via.placeholder.com/400x300?text=Prototyping",
+    text: "Rövid átfutás prototípusokhoz, javításokhoz és egyedi darabokhoz.",
+    img: "/Nyomtatok/Bambulab A1mini.webp",
   },
   {
     title: "Egyedi alkatrészek",
-    text: "Akár egy vagy több darabról van szó.",
-    img: "https://via.placeholder.com/400x300?text=Custom+Parts",
+    text: "Kis szériás gyártás, méretre igazítás és használatra kész tárgyak.",
+    img: "/nagyobb_nyomtato.png",
   },
   {
-    title: "Ingyenes online kalkulátor",
-    text: "Nem kell napokat várnod hogy megtudd mi mennyibe kerül.",
-    img: "https://via.placeholder.com/400x300?text=Store",
+    title: "Online kalkulátor",
+    text: "Fájlfeltöltés, modell-ellenőrzés és becsült ár egy helyen.",
+    img: "/background.jpg",
+  },
+  {
+    title: "Kész modellek",
+    text: "Választható modellek ajándékhoz, irodához, műhelyhez vagy teszthez.",
+    img: "/Nyomtatok/nagyobb_nyomtato.webp",
   },
 ];
 
 export default function Features() {
   return (
-    <section id="features" className="py-16 bg-white">
-      <div className="mx-auto max-w-6xl px-4">
-        <h2 className="text-3xl font-bold text-sky-900 text-center mb-12">Amit kínálunk</h2>
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
-            <div key={f.title} className="rounded-lg border border-sky-100 bg-sky-50 p-4 shadow-sm">
-              <img src={f.img} alt="" className="h-40 w-full rounded-md object-cover" />
-              <h3 className="mt-4 text-xl font-semibold text-sky-800">{f.title}</h3>
-              <p className="mt-2 text-sky-700">{f.text}</p>
-            </div>
+    <section id="features" className="bg-[#03050a] py-14 md:py-20">
+      <div className="mx-auto max-w-6xl px-4 md:px-6">
+        <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="neon-kicker">Szolgáltatások</p>
+            <h2 className="neon-heading mt-2 text-3xl font-bold md:text-4xl">Amit kínálunk</h2>
+          </div>
+          <p className="max-w-xl text-sm leading-relaxed text-slate-400">
+            Precíz, gyors és átlátható 3D nyomtatás ötlettől az elkészült tárgyig.
+          </p>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((feature) => (
+            <article key={feature.title} className="neon-card flex h-full flex-col overflow-hidden">
+              <img src={feature.img} alt="" className="h-40 w-full object-cover" />
+              <div className="flex flex-1 flex-col p-5">
+                <h3 className="text-lg font-semibold text-sky-100">{feature.title}</h3>
+                <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-400">{feature.text}</p>
+              </div>
+            </article>
           ))}
         </div>
       </div>

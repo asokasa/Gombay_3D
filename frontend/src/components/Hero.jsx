@@ -3,24 +3,46 @@ import { Link } from "react-router-dom";
 export default function Hero() {
   return (
     <section
-      className="relative isolate flex items-center justify-center bg-cover bg-center px-4 py-20 text-center"
+      className="relative isolate overflow-hidden bg-cover bg-center px-4 py-16 text-white md:py-24"
       style={{ backgroundImage: "url('/background.jpg')" }}
     >
-      <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
-      <div className="relative mx-auto max-w-5xl">
-        <div className="mx-auto max-w-3xl rounded-3xl bg-blue/40 px-8 py-10 text-white  backdrop-blur-md  ">
-          <h1 className="text-4xl font-extrabold md:text-6xl">
-            Tedd kézzelfoghatóvá a gondolataidat!
+      <div className="absolute inset-0 bg-[#03050a]/78" aria-hidden="true" />
+      <div
+        className="absolute inset-0 opacity-60"
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            "linear-gradient(90deg, rgba(0,149,255,.18) 1px, transparent 1px), linear-gradient(0deg, rgba(255,45,85,.10) 1px, transparent 1px)",
+          backgroundSize: "72px 72px",
+        }}
+      />
+
+      <div className="relative mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.05fr_0.95fr] md:items-center">
+        <div className="max-w-3xl">
+          <p className="neon-kicker">Gombay 3D</p>
+          <h1 className="neon-heading mt-4 text-4xl font-extrabold md:text-6xl">
+            3D nyomtatás neon pontossággal
           </h1>
-          <p className="mt-4 text-lg text-white/90">
-            Prémium minőségű 3D nyomtatás minden ötletedhez.
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-200 md:text-lg">
+            Prototípusok, egyedi alkatrészek és kész modellek gyors gyártása sötét, precíz,
+            technikai hangulatban.
           </p>
-          <Link
-            to="/ajanlatkeres"
-            className="mt-8 inline-flex items-center justify-center rounded-lg bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-500"
-          >
-            Ajánlatkérés
-          </Link>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link to="/ajanlatkeres" className="neon-button px-6 py-3">
+              Ajánlatkérés
+            </Link>
+            <a href="#features" className="neon-button-secondary px-6 py-3">
+              Szolgáltatások
+            </a>
+          </div>
+        </div>
+
+        <div className="neon-panel overflow-hidden rounded-lg">
+          <img
+            src="/nagyobb_nyomtato.png"
+            alt="3D nyomtató munka közben"
+            className="h-72 w-full object-cover md:h-96"
+          />
         </div>
       </div>
     </section>
