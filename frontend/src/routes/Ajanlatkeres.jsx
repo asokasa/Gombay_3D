@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import {
   FILAMENT_ORDER,
   MAX_DIMENSION_CM,
+  DEFAULT_CALCULATOR_SETTINGS,
   analyze3DFile,
   calculateQuote,
 } from "../lib/modelAnalysis";
@@ -122,7 +123,7 @@ function StepPreview({ sizeCm }) {
   );
 }
 
-function ModelPreview({ file, analysis, scaledSizeCm }) {
+function ModelPreview({ file, analysis, scaledSizeCm, quoteScale = 1 }) {
   const [objectUrl, setObjectUrl] = useState(null);
   useEffect(() => {
     if (!file) {
@@ -145,7 +146,7 @@ function ModelPreview({ file, analysis, scaledSizeCm }) {
 
   const showBoundingBox = extension === "step" || extension === "stp";
   const bounds = scaledSizeCm?.length ? scaledSizeCm : analysis.sizeCm;
-  const viewerScale = analysis.previewScale ?? 0.1;
+  const viewerScale = (analysis.previewScale ?? 0.1) * quoteScale;
 
   return (
     <div className="flex flex-col gap-3">
@@ -157,7 +158,7 @@ function ModelPreview({ file, analysis, scaledSizeCm }) {
           <Suspense fallback={null}>
             <FitCamera bounds={bounds} />
             {showBoundingBox ? (
-              <StepPreview sizeCm={analysis.sizeCm} />
+              <StepPreview sizeCm={bounds} />
             ) : extension === "obj" ? (
               objectUrl ? (
                 <ObjModel url={objectUrl} viewerScale={viewerScale} />
@@ -361,9 +362,12 @@ function QuoteCalculator() {
   const [baseAnalysis, setBaseAnalysis] = useState(null);
   const [unitOverride, setUnitOverride] = useState("auto");
   const [selectedFilament, setSelectedFilament] = useState(FILAMENT_ORDER[0].key);
+  const [selectedColorHex, setSelectedColorHex] = useState("");
   const [status, setStatus] = useState({ type: "info", message: "" });
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const fileInputRef = useRef(null);
+  const analysisRequestIdRef = useRef(0);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -372,12 +376,73 @@ function QuoteCalculator() {
     message: "",
   });
 
-  const quote = useMemo(() => {
-    if (!analysis) {
+  const filamentsQuery = useQuery({
+    queryKey: ["filaments"],
+    queryFn: () => api("/filaments"),
+    retry: false,
+  });
+
+  const calculatorSettingsQuery = useQuery({
+    queryKey: ["calculator-settings"],
+    queryFn: () => api("/calculator-settings"),
+    retry: false,
+  });
+
+  const filamentOptions = useMemo(() => {
+    if (filamentsQuery.isSuccess) {
+      return filamentsQuery.data?.items ?? [];
+    }
+
+    return FILAMENT_ORDER;
+  }, [filamentsQuery.data, filamentsQuery.isSuccess]);
+
+  const selectedMaterial = useMemo(
+    () => filamentOptions.find((item) => item.key === selectedFilament) ?? filamentOptions[0],
+    [filamentOptions, selectedFilament]
+  );
+
+  const colorOptions = useMemo(() => selectedMaterial?.colors ?? [], [selectedMaterial]);
+
+  const selectedColor = useMemo(() => {
+    if (!colorOptions.length) {
       return null;
     }
-    return calculateQuote({ analysis, filamentKey: selectedFilament });
-  }, [analysis, selectedFilament]);
+    return colorOptions.find((item) => item.hex === selectedColorHex) ?? colorOptions[0];
+  }, [colorOptions, selectedColorHex]);
+
+  useEffect(() => {
+    if (!selectedMaterial && filamentOptions.length) {
+      setSelectedFilament(filamentOptions[0].key);
+      return;
+    }
+
+    if (selectedMaterial && !filamentOptions.some((item) => item.key === selectedMaterial.key)) {
+      setSelectedFilament(filamentOptions[0]?.key ?? FILAMENT_ORDER[0].key);
+    }
+  }, [filamentOptions, selectedMaterial]);
+
+  useEffect(() => {
+    if (!colorOptions.length) {
+      setSelectedColorHex("");
+      return;
+    }
+
+    if (!colorOptions.some((item) => item.hex === selectedColorHex)) {
+      setSelectedColorHex(colorOptions[0].hex);
+    }
+  }, [colorOptions, selectedColorHex]);
+
+  const quote = useMemo(() => {
+    if (!analysis || !selectedMaterial) {
+      return null;
+    }
+    return calculateQuote({
+      analysis,
+      filamentKey: selectedFilament,
+      filament: selectedMaterial,
+      calculatorSettings: calculatorSettingsQuery.data?.item ?? DEFAULT_CALCULATOR_SETTINGS,
+    });
+  }, [analysis, calculatorSettingsQuery.data, selectedFilament, selectedMaterial]);
 
   const scaledSizeCm = useMemo(() => {
     if (quote?.scaledSizeCm?.length) {
@@ -389,24 +454,31 @@ function QuoteCalculator() {
     return null;
   }, [analysis, quote]);
 
-  const selectedMaterial = useMemo(
-    () => FILAMENT_ORDER.find((item) => item.key === selectedFilament) ?? FILAMENT_ORDER[0],
-    [selectedFilament]
-  );
-
   const detectedUnitLabel = baseAnalysis?.detectedUnit ?? analysis?.detectedUnit ?? "";
 
   const rawDimensionsText = formatDimensionArray(analysis?.sizeCm);
   const scaledDimensionsText = formatDimensionArray(scaledSizeCm);
   const hasWarnings = Boolean(analysis?.warnings?.length);
+  const canSubmit = Boolean(
+    file && analysis && quote && !loading && !sending && (!colorOptions.length || selectedColor),
+  );
+
+  function clearFileInput() {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
 
   async function handleFileChange(event) {
+    const requestId = analysisRequestIdRef.current + 1;
+    analysisRequestIdRef.current = requestId;
     const selectedFile = event.target.files?.[0];
     setAnalysis(null);
     setBaseAnalysis(null);
     setUnitOverride("auto");
     if (!selectedFile) {
       setFile(null);
+      clearFileInput();
       setStatus({ type: "info", message: "" });
       return;
     }
@@ -416,12 +488,16 @@ function QuoteCalculator() {
         message: "Legfeljebb 50 MB méretű fájl tölthető fel.",
       });
       setFile(null);
+      clearFileInput();
       return;
     }
     setLoading(true);
     setStatus({ type: "info", message: "A fájl feldolgozása folyamatban..." });
     try {
       const result = await analyze3DFile(selectedFile);
+      if (requestId !== analysisRequestIdRef.current) {
+        return;
+      }
       setFile(selectedFile);
       setBaseAnalysis(result);
       setAnalysis(result);
@@ -432,7 +508,7 @@ function QuoteCalculator() {
           `A modell nagyobb a ${MAX_DIMENSION_CM} cm-es nyomtatási térnél, ${formatNumber(
             recommendedScale * 100,
             0
-          )}% méretarányt javaslunk. Kérjük, jelezd a kívánt méretet az üzenetben.`
+          )}% méretarányt használ az árbecslés. Jelezd az üzenetben, ha más méretet szeretnél.`
         );
       }
       if (result.warnings?.length) {
@@ -449,6 +525,8 @@ function QuoteCalculator() {
       console.error(error);
       setFile(null);
       setAnalysis(null);
+      setBaseAnalysis(null);
+      clearFileInput();
       setStatus({
         type: "error",
         message:
@@ -457,11 +535,15 @@ function QuoteCalculator() {
             : "Ismeretlen hiba történt a fájl feldolgozása során.",
       });
     } finally {
-      setLoading(false);
+      if (requestId === analysisRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }
 
   async function handleUnitOverrideChange(event) {
+    const requestId = analysisRequestIdRef.current + 1;
+    analysisRequestIdRef.current = requestId;
     const { value } = event.target;
     setUnitOverride(value);
     if (!file) {
@@ -498,6 +580,9 @@ function QuoteCalculator() {
 
     try {
       const result = await analyze3DFile(file, { unitOverride: preset });
+      if (requestId !== analysisRequestIdRef.current) {
+        return;
+      }
       setAnalysis(result);
       const messageParts = [`${preset.label} feltételezésével újraértékeltük a modellt.`];
       if (result.autoScale?.recommendedScale < 1) {
@@ -505,7 +590,7 @@ function QuoteCalculator() {
           `A modell nagyobb a ${MAX_DIMENSION_CM} cm-es nyomtatási térnél, ${formatNumber(
             result.autoScale.recommendedScale * 100,
             0
-          )}% méretarányt javaslunk.`
+          )}% méretarányt használ az árbecslés.`
         );
       }
       if (result.warnings?.length) {
@@ -525,7 +610,9 @@ function QuoteCalculator() {
             : "Ismeretlen hiba történt a fájl újraelemzése során.",
       });
     } finally {
-      setLoading(false);
+      if (requestId === analysisRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }
 
@@ -546,7 +633,13 @@ function QuoteCalculator() {
       });
       return;
     }
-    if (!formData.name || !formData.email || !formData.address) {
+    const trimmedFormData = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      address: formData.address.trim(),
+      message: formData.message.trim(),
+    };
+    if (!trimmedFormData.name || !trimmedFormData.email || !trimmedFormData.address) {
       setStatus({
         type: "error",
         message: "Add meg a neved, e-mail címed és címed a folytatáshoz.",
@@ -554,13 +647,19 @@ function QuoteCalculator() {
       return;
     }
 
+    const materialPayload = {
+      ...selectedMaterial,
+      color: selectedColor,
+    };
+
     const payload = new FormData();
     payload.append("file", file);
-    payload.append("name", formData.name.trim());
-    payload.append("email", formData.email.trim());
-    payload.append("address", formData.address.trim());
-    payload.append("message", formData.message.trim());
-    payload.append("selectedMaterial", JSON.stringify(selectedMaterial));
+    payload.append("name", trimmedFormData.name);
+    payload.append("email", trimmedFormData.email);
+    payload.append("address", trimmedFormData.address);
+    payload.append("message", trimmedFormData.message);
+    payload.append("selectedMaterial", JSON.stringify(materialPayload));
+    payload.append("selectedColor", JSON.stringify(selectedColor ?? {}));
     payload.append("analysis", JSON.stringify(analysis));
     payload.append("quote", JSON.stringify(quote));
     payload.append("scaledSizeCm", JSON.stringify(scaledSizeCm ?? []));
@@ -586,10 +685,13 @@ function QuoteCalculator() {
 
       setFormData({ name: "", email: "", address: "", message: "" });
       setSelectedFilament(FILAMENT_ORDER[0].key);
+      setSelectedColorHex("");
       setUnitOverride("auto");
       setFile(null);
       setAnalysis(null);
       setBaseAnalysis(null);
+      analysisRequestIdRef.current += 1;
+      clearFileInput();
     } catch (error) {
       console.error(error);
       setStatus({
@@ -615,6 +717,7 @@ function QuoteCalculator() {
         </p>
         <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-sky-300 bg-sky-50/40 p-6 text-center text-sky-700 transition hover:border-sky-500 hover:bg-sky-100">
           <input
+            ref={fileInputRef}
             type="file"
             accept=".stl,.STL,.obj,.OBJ,.step,.STEP,.stp,.STP,.gltf,.GLTF,.glb,.GLB"
             className="hidden"
@@ -644,7 +747,12 @@ function QuoteCalculator() {
         {loading ? <p className="mt-4 text-sm text-slate-600">Feldolgozás...</p> : null}
         {analysis ? (
           <div className="mt-6 space-y-6">
-            <ModelPreview file={file} analysis={analysis} scaledSizeCm={scaledSizeCm} />
+            <ModelPreview
+              file={file}
+              analysis={analysis}
+              scaledSizeCm={scaledSizeCm}
+              quoteScale={quote?.scale ?? 1}
+            />
 
             <div>
               <h3 className="text-lg font-semibold text-sky-900">Filament kiválasztása</h3>
@@ -652,14 +760,27 @@ function QuoteCalculator() {
                 Válaszd ki a felhasználási célnak megfelelő alapanyagot - a költségbecslés azonnal
                 frissül.
               </p>
+              {filamentsQuery.isError ? (
+                <p className="mt-2 text-xs text-amber-700">
+                  Az admin filamentlista nem érhető el, ezért az alapértelmezett anyagok láthatók.
+                </p>
+              ) : null}
+              {filamentsQuery.isSuccess && filamentOptions.length === 0 ? (
+                <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800">
+                  Jelenleg nincs választható filament. Kérjük, vedd fel velünk a kapcsolatot.
+                </p>
+              ) : null}
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {FILAMENT_ORDER.map((material) => {
+                {filamentOptions.map((material) => {
                   const isActive = material.key === selectedFilament;
                   return (
                     <button
                       key={material.key}
                       type="button"
-                      onClick={() => setSelectedFilament(material.key)}
+                      onClick={() => {
+                        setSelectedFilament(material.key);
+                        setSelectedColorHex(material.colors?.[0]?.hex ?? "");
+                      }}
                       className={[
                         "flex h-full flex-col rounded-lg border p-4 text-left transition",
                         isActive
@@ -681,10 +802,51 @@ function QuoteCalculator() {
                           {formatPricePerGram(material.priceHufPerGram)}
                         </span>
                       ) : null}
+                      {material.colors?.length ? (
+                        <span className="mt-3 flex flex-wrap gap-1.5" aria-hidden="true">
+                          {material.colors.slice(0, 8).map((color) => (
+                            <span
+                              key={`${material.key}-${color.hex}-${color.name}`}
+                              className="h-4 w-4 rounded-full border border-slate-500"
+                              style={{ backgroundColor: color.hex }}
+                            />
+                          ))}
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
               </div>
+              {colorOptions.length ? (
+                <div className="mt-5">
+                  <h4 className="text-sm font-semibold text-sky-900">Szín kiválasztása</h4>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {colorOptions.map((color) => {
+                      const isActive = selectedColor?.hex === color.hex;
+                      return (
+                        <button
+                          key={`${color.hex}-${color.name}`}
+                          type="button"
+                          onClick={() => setSelectedColorHex(color.hex)}
+                          className={[
+                            "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition",
+                            isActive
+                              ? "border-sky-300 bg-sky-100/70 text-sky-900 shadow"
+                              : "border-slate-200 bg-white/70 text-slate-700 hover:border-sky-300",
+                          ].join(" ")}
+                        >
+                          <span
+                            className="h-5 w-5 rounded-full border border-slate-500"
+                            style={{ backgroundColor: color.hex }}
+                            aria-hidden="true"
+                          />
+                          {color.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {quote ? (
@@ -701,6 +863,12 @@ function QuoteCalculator() {
                         <dt className="font-medium text-slate-600">Skálázott méret</dt>
                         <dd>{scaledDimensionsText}</dd>
                       </div>
+                      {quote.scale !== 1 ? (
+                        <div>
+                          <dt className="font-medium text-slate-600">Alkalmazott méretarány</dt>
+                          <dd>{formatPercentage(quote.scale * 100)}</dd>
+                        </div>
+                      ) : null}
                       <div>
                         <dt className="font-medium text-slate-600">Térfogat</dt>
                         <dd>{formatNumber(quote.scaledVolumeCm3, 2)} cm3</dd>
@@ -754,6 +922,16 @@ function QuoteCalculator() {
                     <p className="mt-1 text-sm text-emerald-700">
                       {selectedMaterial.label} alapanyag - {selectedMaterial.temperature}
                     </p>
+                    {selectedColor ? (
+                      <p className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                        <span
+                          className="h-4 w-4 rounded-full border border-emerald-900/40"
+                          style={{ backgroundColor: selectedColor.hex }}
+                          aria-hidden="true"
+                        />
+                        {selectedColor.name}
+                      </p>
+                    ) : null}
                     {Number.isFinite(quote.materialPricePerGram) ? (
                       <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
                         {formatPricePerGram(quote.materialPricePerGram)}
@@ -906,10 +1084,10 @@ function QuoteCalculator() {
         </label>
         <button
           type="submit"
-          disabled={sending}
+          disabled={!canSubmit}
           className={[
             "mt-6 inline-flex w-full items-center justify-center rounded-md px-6 py-3 font-semibold text-white transition sm:w-auto",
-            sending ? "cursor-not-allowed bg-red-400" : "bg-red-600 hover:bg-red-500",
+            canSubmit ? "bg-red-600 hover:bg-red-500" : "cursor-not-allowed bg-red-400",
           ].join(" ")}
         >
           {sending ? "Küldés folyamatban..." : "Ajánlatkérés elküldése"}

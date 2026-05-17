@@ -57,6 +57,7 @@ export async function createQuoteRequest(req, res) {
   }
 
   const selectedMaterial = parseJsonField(req.body.selectedMaterial, {});
+  const selectedColor = parseJsonField(req.body.selectedColor, {});
   const analysis = parseJsonField(req.body.analysis, {});
   const quote = parseJsonField(req.body.quote, {});
   const scaledSizeCm = normalizeNumberArray(parseJsonField(req.body.scaledSizeCm, []));
@@ -91,6 +92,10 @@ export async function createQuoteRequest(req, res) {
       priceHufPerGram: Number.isFinite(Number(selectedMaterial.priceHufPerGram))
         ? Number(selectedMaterial.priceHufPerGram)
         : null,
+      color: {
+        name: selectedColor.name || selectedMaterial.color?.name || "",
+        hex: selectedColor.hex || selectedMaterial.color?.hex || "",
+      },
     },
     analysis,
     quote,

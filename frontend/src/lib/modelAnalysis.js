@@ -18,82 +18,122 @@ const SELF_INTERSECTION_THRESHOLD_MM = 0.05;
 
 const RAD_TO_DEG = 180 / Math.PI;
 
+export const DEFAULT_CALCULATOR_SETTINGS = {
+  serviceFeeHuf: 3500,
+  machineRateHufPerHour: 2800,
+  fallbackMaterialCostHufPerCm3: 12.5,
+  finishingCostHufPerCm2: 1.8,
+  printSpeedCm3PerHour: 18,
+  infillFactor: 0.22,
+  minimumPrintHours: 0.4,
+};
+
 export const FILAMENTS = {
   PLA: {
     key: "PLA",
     label: "PLA",
     description:
-      "Prototípusok, dekoráció, makettek, esztétikai tárgyak, kevésbé terhelhető alkatrészek.",
+      "prototípusok, dekoráció, makettek, esztétikai tárgyak, kevésbé terhelhető alkatrészek.",
     temperature: "kb. 50–60 °C",
     density: 1.24,
     materialMultiplier: 1,
     machineMultiplier: 1,
     priceHufPerGram: 30,
+    colors: [
+      { name: "Fehér", hex: "#f8fafc" },
+      { name: "Fekete", hex: "#111827" },
+      { name: "Piros", hex: "#ef4444" },
+    ],
   },
   PETG: {
     key: "PETG",
     label: "PETG",
     description:
-      "Funkcionális alkatrészek, vízzel érintkező tárgyak, burkolatok, tartósabb háztartási és műszaki kiegészítők.",
+      "funkcionális alkatrészek, vízzel érintkező tárgyak, burkolatok, tartósabb háztartási és műszaki kiegészítők.",
     temperature: "kb. 70–80 °C",
     density: 1.27,
     materialMultiplier: 1.1,
     machineMultiplier: 1.05,
     priceHufPerGram: 30,
+    colors: [
+      { name: "Átlátszó", hex: "#dbeafe" },
+      { name: "Fekete", hex: "#111827" },
+      { name: "Kék", hex: "#2563eb" },
+    ],
   },
   TPU: {
     key: "TPU",
     label: "TPU",
-    description: "Hajlékony tokok, tömítések, ütéscsillapítók, gumiszerű elemek.",
+    description: "hajlékony tokok, tömítések, ütéscsillapítók, gumiszerű elemek.",
     temperature: "kb. 60–80 °C",
     density: 1.21,
     materialMultiplier: 1.35,
     machineMultiplier: 1.15,
     priceHufPerGram: 50,
+    colors: [
+      { name: "Fekete", hex: "#111827" },
+      { name: "Piros", hex: "#dc2626" },
+    ],
   },
   ABS: {
     key: "ABS",
     label: "ABS",
     description:
-      "Mechanikai alkatrészek, burkolatok, műanyag házak, közepes terhelésű funkcionális részek.",
+      "mechanikai alkatrészek, burkolatok, műanyag házak, közepes terhelésű funkcionális részek.",
     temperature: "kb. 90–100 °C",
     density: 1.04,
     materialMultiplier: 1.25,
     machineMultiplier: 1.1,
     priceHufPerGram: 40,
+    colors: [
+      { name: "Fekete", hex: "#111827" },
+      { name: "Natúr", hex: "#d6d3d1" },
+    ],
   },
   ASA: {
     key: "ASA",
     label: "ASA",
     description:
-      "Kültéri használatra szánt alkatrészek, autóipari külső elemek, UV-álló burkolatok.",
+      "kültéri használatra szánt alkatrészek, autóipari külső elemek, UV-álló burkolatok.",
     temperature: "kb. 95–105 °C",
     density: 1.07,
     materialMultiplier: 1.35,
     machineMultiplier: 1.15,
     priceHufPerGram: 40,
+    colors: [
+      { name: "Fekete", hex: "#111827" },
+      { name: "Fehér", hex: "#f8fafc" },
+    ],
   },
   PA: {
     key: "PA",
-    label: "PA (Nylon)",
+    label: "PA",
     description:
-      "Erős, rugalmas és kopásálló funkcionális alkatrészek, fogaskerekek, csapágyak, műszaki kötések.",
+      "erős, rugalmas és kopásálló funkcionális alkatrészek, fogaskerekek, csapágyak, műszaki kötések.",
     temperature: "kb. 100–120 °C",
     density: 1.14,
     materialMultiplier: 1.55,
     machineMultiplier: 1.2,
     priceHufPerGram: 90,
+    colors: [
+      { name: "Natúr", hex: "#e7e5e4" },
+      { name: "Fekete", hex: "#111827" },
+    ],
   },
   PC: {
     key: "PC",
     label: "PC",
     description:
-      "Nagyon erős mechanikai alkatrészek, elektronikai házak, magas hőhatásnak kitett szerkezetek.",
+      "nagyon erős mechanikai alkatrészek, elektronikai házak, magas hőhatásnak kitett szerkezetek.",
     temperature: "kb. 110–130 °C",
     density: 1.2,
     materialMultiplier: 1.75,
     machineMultiplier: 1.25,
     priceHufPerGram: 80,
+    colors: [
+      { name: "Átlátszó", hex: "#e0f2fe" },
+      { name: "Fekete", hex: "#111827" },
+    ],
   },
 };
 
@@ -193,28 +233,13 @@ function inferUnits(sizeVector) {
     };
   }
 
-  // Heurisztika: ha nagyon kicsi a modell, valószínűleg méter helyett milliméter.
+  // STL/OBJ/GLTF files are unitless. Most slicer-ready exports are millimeters;
+  // tiny coordinate ranges are the common exception for meter-based CAD exports.
   if (maxDimension < 1) {
     return {
       inferredUnit: "méter",
       toMillimeter: 1000,
       autoScale: 1000,
-    };
-  }
-
-  if (maxDimension > 2000) {
-    return {
-      inferredUnit: "méter", // túl nagy, valószínűleg méterben van modellálva
-      toMillimeter: 1000,
-      autoScale: 1000,
-    };
-  }
-
-  if (maxDimension > 500) {
-    return {
-      inferredUnit: "inch/egyéb",
-      toMillimeter: 25.4,
-      autoScale: 25.4,
     };
   }
 
@@ -613,6 +638,9 @@ async function analyzeStep(file, options = {}) {
   const sizeCm = sizeMm.map((value) => value / 10);
   const maxDimension = Math.max(...sizeCm);
   const autoScaleFactor = Math.min(1, MAX_DIMENSION_CM / Math.max(1, maxDimension));
+  const boundingBoxVolumeCm3 = sizeCm[0] * sizeCm[1] * sizeCm[2];
+  const boundingBoxSurfaceAreaCm2 =
+    2 * (sizeCm[0] * sizeCm[1] + sizeCm[0] * sizeCm[2] + sizeCm[1] * sizeCm[2]);
   return {
     sizeCm,
     sizeMm,
@@ -620,10 +648,10 @@ async function analyzeStep(file, options = {}) {
     detectedUnit: "milliméter (becsült)",
     unitScaleToMm: unitToMillimeter,
     unitScaleToCm: unitToMillimeter / 10,
-    volumeCm3: sizeCm[0] * sizeCm[1] * sizeCm[2],
-    surfaceAreaCm2: null,
-    surfaceAreaMm2: null,
-    volumeMm3: null,
+    volumeCm3: boundingBoxVolumeCm3,
+    surfaceAreaCm2: boundingBoxSurfaceAreaCm2,
+    surfaceAreaMm2: boundingBoxSurfaceAreaCm2 * 100,
+    volumeMm3: boundingBoxVolumeCm3 * 1000,
     manifold: { nonManifoldEdges: null, isWatertight: null },
     normalsFlipped: false,
     overhangs: null,
@@ -676,38 +704,63 @@ export async function analyze3DFile(file, options = {}) {
   throw new Error("A rendszer csak STL, OBJ, GLTF/GLB vagy STEP/STP formátumú fájlokat fogad el.");
 }
 
-export function calculateQuote({ analysis, filamentKey, scale = 1 }) {
-  const filament = FILAMENTS[filamentKey] ?? FILAMENTS.PLA;
-  const scaledVolumeCm3 = (analysis?.volumeCm3 ?? 0) * scale ** 3;
-  const scaledSurfaceAreaCm2 = (analysis?.surfaceAreaCm2 ?? 0) * scale ** 2;
-  const scaledSizeCm = (analysis?.sizeCm ?? []).map((value) => value * scale);
+export function calculateQuote({
+  analysis,
+  filamentKey,
+  filament: filamentOverride,
+  calculatorSettings,
+  scale,
+}) {
+  const filament = filamentOverride ?? FILAMENTS[filamentKey] ?? FILAMENTS.PLA;
+  const settings = {
+    ...DEFAULT_CALCULATOR_SETTINGS,
+    ...(calculatorSettings ?? {}),
+  };
+  const recommendedScale = analysis?.autoScale?.recommendedScale;
+  const quoteScale =
+    Number.isFinite(scale) && scale > 0
+      ? scale
+      : Number.isFinite(recommendedScale) && recommendedScale > 0
+        ? recommendedScale
+        : 1;
+  const scaledVolumeCm3 = (analysis?.volumeCm3 ?? 0) * quoteScale ** 3;
+  const scaledSurfaceAreaCm2 = Number.isFinite(analysis?.surfaceAreaCm2)
+    ? analysis.surfaceAreaCm2 * quoteScale ** 2
+    : null;
+  const scaledSizeCm = (analysis?.sizeCm ?? []).map((value) => value * quoteScale);
 
-  const BASE_SERVICE_FEE_HUF = 3500;
-  const BASE_MACHINE_RATE_HUF_PER_HOUR = 2800;
-  const BASE_MATERIAL_COST_PER_CM3_HUF = 12.5;
-  const FINISHING_COST_PER_CM2_HUF = 1.8;
-  const PRINT_SPEED_CM3_PER_HOUR = 18;
-  const INFILL_FACTOR = 0.22;
+  const serviceFeeHuf = Math.max(0, Number(settings.serviceFeeHuf) || 0);
+  const machineRateHufPerHour = Math.max(0, Number(settings.machineRateHufPerHour) || 0);
+  const fallbackMaterialCostHufPerCm3 = Math.max(
+    0,
+    Number(settings.fallbackMaterialCostHufPerCm3) || 0,
+  );
+  const finishingCostHufPerCm2 = Math.max(0, Number(settings.finishingCostHufPerCm2) || 0);
+  const printSpeedCm3PerHour = Math.max(0.01, Number(settings.printSpeedCm3PerHour) || 0);
+  const infillFactor = Math.min(1, Math.max(0, Number(settings.infillFactor) || 0));
+  const minimumPrintHours = Math.max(0, Number(settings.minimumPrintHours) || 0);
 
-  const effectiveVolumeCm3 = scaledVolumeCm3 * INFILL_FACTOR;
-  const hours = Math.max(0.4, effectiveVolumeCm3 / PRINT_SPEED_CM3_PER_HOUR);
+  const effectiveVolumeCm3 = scaledVolumeCm3 * infillFactor;
+  const hours = Math.max(minimumPrintHours, effectiveVolumeCm3 / printSpeedCm3PerHour);
 
   const density = filament.density ?? 1.24;
   const massGrams = effectiveVolumeCm3 * density;
   const pricePerGram = filament.priceHufPerGram;
 
   const fallbackMaterialCost =
-    effectiveVolumeCm3 * BASE_MATERIAL_COST_PER_CM3_HUF * (filament.materialMultiplier ?? 1);
+    effectiveVolumeCm3 * fallbackMaterialCostHufPerCm3 * (filament.materialMultiplier ?? 1);
   const materialCost = Number.isFinite(pricePerGram)
     ? massGrams * pricePerGram
     : fallbackMaterialCost;
-  const machineCost = hours * BASE_MACHINE_RATE_HUF_PER_HOUR * filament.machineMultiplier;
-  const finishingCost = scaledSurfaceAreaCm2 * FINISHING_COST_PER_CM2_HUF;
-  const total = BASE_SERVICE_FEE_HUF + materialCost + machineCost + finishingCost;
+  const machineCost = hours * machineRateHufPerHour * filament.machineMultiplier;
+  const finishingCost = Number.isFinite(scaledSurfaceAreaCm2)
+    ? scaledSurfaceAreaCm2 * finishingCostHufPerCm2
+    : 0;
+  const total = serviceFeeHuf + materialCost + machineCost + finishingCost;
 
   return {
     filament,
-    scale,
+    scale: quoteScale,
     scaledVolumeCm3,
     scaledSurfaceAreaCm2,
     scaledSizeCm,
@@ -715,10 +768,19 @@ export function calculateQuote({ analysis, filamentKey, scale = 1 }) {
     materialCost,
     machineCost,
     finishingCost,
-    serviceFee: BASE_SERVICE_FEE_HUF,
+    serviceFee: serviceFeeHuf,
     total,
     massGrams,
     materialPricePerGram: Number.isFinite(pricePerGram) ? pricePerGram : null,
+    calculatorSettings: {
+      serviceFeeHuf,
+      machineRateHufPerHour,
+      fallbackMaterialCostHufPerCm3,
+      finishingCostHufPerCm2,
+      printSpeedCm3PerHour,
+      infillFactor,
+      minimumPrintHours,
+    },
   };
 }
 

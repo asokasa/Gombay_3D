@@ -10,6 +10,8 @@ import { fileURLToPath } from "url";
 import connectDB from "./lib/connectDB.js";
 import { ensureCloudinaryFolders, hasCloudinaryCredentials } from "./lib/cloudinary.js";
 import ensureDefaultAdmin from "./lib/ensureDefaultAdmin.js";
+import ensureDefaultCalculatorSettings from "./lib/ensureDefaultCalculatorSettings.js";
+import ensureDefaultFilaments from "./lib/ensureDefaultFilaments.js";
 import authRoutes from "./routes/authRoutes.js";
 import quoteRoutes from "./routes/quoteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -77,6 +79,8 @@ async function start() {
   try {
     await connectDB();
     await ensureDefaultAdmin();
+    await ensureDefaultFilaments();
+    await ensureDefaultCalculatorSettings();
     if (hasCloudinaryCredentials()) {
       await ensureCloudinaryFolders();
     }

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { api, apiBase } from "../lib/api";
+import { DEFAULT_CALCULATOR_SETTINGS } from "../lib/modelAnalysis";
 
 const FILTERS = [
   { key: "active", label: "Active" },
@@ -26,6 +27,35 @@ const STATUS_CLASSES = {
   done: "bg-slate-200 text-slate-800 ring-slate-300",
   archived: "bg-zinc-200 text-zinc-700 ring-zinc-300",
 };
+
+const EMPTY_FILAMENT_FORM = {
+  key: "",
+  label: "",
+  description: "",
+  temperature: "",
+  density: "1.24",
+  materialMultiplier: "1",
+  machineMultiplier: "1",
+  priceHufPerGram: "30",
+  sortOrder: "0",
+  colors: [{ name: "White", hex: "#f8fafc" }],
+};
+
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
+
+const CALCULATOR_SETTING_FIELDS = [
+  { key: "serviceFeeHuf", label: "Service base fee", suffix: "Ft" },
+  { key: "machineRateHufPerHour", label: "Machine hourly rate", suffix: "Ft/h" },
+  {
+    key: "fallbackMaterialCostHufPerCm3",
+    label: "Fallback material cost",
+    suffix: "Ft/cm3",
+  },
+  { key: "finishingCostHufPerCm2", label: "Surface finishing", suffix: "Ft/cm2" },
+  { key: "printSpeedCm3PerHour", label: "Print speed", suffix: "cm3/h" },
+  { key: "infillFactor", label: "Infill factor", suffix: "0-1" },
+  { key: "minimumPrintHours", label: "Minimum print time", suffix: "h" },
+];
 
 function formatCurrency(value) {
   if (!Number.isFinite(Number(value))) {
@@ -66,6 +96,562 @@ function formatDimensions(values) {
   return values
     .map((value) => `${Number(value).toFixed(2)} cm`)
     .join(" x ");
+}
+
+function buildFilamentPayload(form) {
+  return {
+    key: form.key.trim(),
+    label: form.label.trim(),
+    description: form.description.trim(),
+    temperature: form.temperature.trim(),
+    density: Number(form.density),
+    materialMultiplier: Number(form.materialMultiplier),
+    machineMultiplier: Number(form.machineMultiplier),
+    priceHufPerGram: Number(form.priceHufPerGram),
+    sortOrder: Number(form.sortOrder || 0),
+    colors: form.colors
+      .map((color) => ({
+        name: color.name.trim(),
+        hex: color.hex.trim(),
+      }))
+      .filter((color) => color.name && color.hex),
+  };
+}
+
+function buildSettingsForm(settings) {
+  return Object.fromEntries(
+    CALCULATOR_SETTING_FIELDS.map((field) => [
+      field.key,
+      String(settings?.[field.key] ?? DEFAULT_CALCULATOR_SETTINGS[field.key]),
+    ]),
+  );
+}
+
+function buildSettingsPayload(form) {
+  return Object.fromEntries(
+    CALCULATOR_SETTING_FIELDS.map((field) => [field.key, Number(form[field.key])]),
+  );
+}
+
+function CalculatorSettingsManager({ token, enabled }) {
+  const queryClient = useQueryClient();
+  const [settingsForm, setSettingsForm] = useState(() =>
+    buildSettingsForm(DEFAULT_CALCULATOR_SETTINGS),
+  );
+
+  const settingsQuery = useQuery({
+    queryKey: ["calculator-settings"],
+    queryFn: () => api("/calculator-settings"),
+    enabled,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (settingsQuery.data?.item) {
+      setSettingsForm(buildSettingsForm(settingsQuery.data.item));
+    }
+  }, [settingsQuery.data]);
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: (payload) =>
+      api("/admin/calculator-settings", {
+        method: "PATCH",
+        body: payload,
+        token,
+      }),
+    onSuccess: (data) => {
+      setSettingsForm(buildSettingsForm(data?.item));
+      queryClient.invalidateQueries({ queryKey: ["calculator-settings"] });
+    },
+  });
+
+  function handleLoadCurrentSettings() {
+    setSettingsForm(buildSettingsForm(settingsQuery.data?.item ?? DEFAULT_CALCULATOR_SETTINGS));
+  }
+
+  function handleSettingsSubmit(event) {
+    event.preventDefault();
+    updateSettingsMutation.mutate(buildSettingsPayload(settingsForm));
+  }
+
+  return (
+    <section className="neon-panel mt-6 rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
+      <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
+        <div>
+          <p className="text-sm text-slate-500">Calculator Settings</p>
+          <h2 className="text-xl font-semibold text-sky-900">Additional Costs</h2>
+        </div>
+        <button
+          type="button"
+          onClick={handleLoadCurrentSettings}
+          className="neon-button-secondary rounded-md px-4 py-2 text-sm"
+        >
+          Reset Form
+        </button>
+      </div>
+
+      <form className="mt-4 space-y-4" onSubmit={handleSettingsSubmit}>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {CALCULATOR_SETTING_FIELDS.map((field) => (
+            <label key={field.key} className="block text-sm font-medium text-slate-700">
+              {field.label}
+              <div className="mt-1 flex rounded-md shadow-sm">
+                <input
+                  type="number"
+                  min={field.key === "printSpeedCm3PerHour" ? "0.01" : "0"}
+                  max={field.key === "infillFactor" ? "1" : undefined}
+                  step={field.key === "infillFactor" ? "0.01" : "0.01"}
+                  value={settingsForm[field.key]}
+                  onChange={(event) =>
+                    setSettingsForm((value) => ({
+                      ...value,
+                      [field.key]: event.target.value,
+                    }))
+                  }
+                  required
+                  className="min-w-0 flex-1 rounded-l-md border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+                />
+                <span className="inline-flex items-center rounded-r-md border border-l-0 border-slate-300 bg-slate-50 px-3 text-xs font-semibold text-slate-600">
+                  {field.suffix}
+                </span>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        <button
+          type="submit"
+          disabled={updateSettingsMutation.isPending}
+          className="neon-button rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {updateSettingsMutation.isPending ? "Saving..." : "Save Cost Settings"}
+        </button>
+      </form>
+
+      {settingsQuery.isError ? (
+        <p className="mt-4 text-sm text-red-600">{settingsQuery.error.message}</p>
+      ) : null}
+      {updateSettingsMutation.isError ? (
+        <p className="mt-4 text-sm text-red-600">{updateSettingsMutation.error.message}</p>
+      ) : null}
+      {updateSettingsMutation.isSuccess ? (
+        <p className="mt-4 text-sm text-emerald-700">Calculator cost settings saved.</p>
+      ) : null}
+    </section>
+  );
+}
+
+function FilamentManager({ token, enabled }) {
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState("");
+  const [filamentForm, setFilamentForm] = useState(EMPTY_FILAMENT_FORM);
+
+  const filamentsQuery = useQuery({
+    queryKey: ["filaments"],
+    queryFn: () => api("/filaments"),
+    enabled,
+    retry: false,
+  });
+
+  const filaments = filamentsQuery.data?.items ?? [];
+
+  const createFilamentMutation = useMutation({
+    mutationFn: (payload) =>
+      api("/admin/filaments", {
+        method: "POST",
+        body: payload,
+        token,
+      }),
+    onSuccess: () => {
+      setFilamentForm(EMPTY_FILAMENT_FORM);
+      queryClient.invalidateQueries({ queryKey: ["filaments"] });
+    },
+  });
+
+  const updateFilamentMutation = useMutation({
+    mutationFn: ({ id, payload }) =>
+      api(`/admin/filaments/${id}`, {
+        method: "PATCH",
+        body: payload,
+        token,
+      }),
+    onSuccess: () => {
+      setEditingId("");
+      setFilamentForm(EMPTY_FILAMENT_FORM);
+      queryClient.invalidateQueries({ queryKey: ["filaments"] });
+    },
+  });
+
+  const deleteFilamentMutation = useMutation({
+    mutationFn: (id) =>
+      api(`/admin/filaments/${id}`, {
+        method: "DELETE",
+        token,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["filaments"] });
+    },
+  });
+
+  const isSaving = createFilamentMutation.isPending || updateFilamentMutation.isPending;
+
+  function resetForm() {
+    setEditingId("");
+    setFilamentForm(EMPTY_FILAMENT_FORM);
+  }
+
+  function handleColorChange(index, patch) {
+    setFilamentForm((current) => ({
+      ...current,
+      colors: current.colors.map((color, colorIndex) =>
+        colorIndex === index ? { ...color, ...patch } : color,
+      ),
+    }));
+  }
+
+  function handleAddColor() {
+    setFilamentForm((current) => ({
+      ...current,
+      colors: [...current.colors, { name: "", hex: "#ffffff" }],
+    }));
+  }
+
+  function handleRemoveColor(index) {
+    setFilamentForm((current) => ({
+      ...current,
+      colors: current.colors.filter((_color, colorIndex) => colorIndex !== index),
+    }));
+  }
+
+  function handleEditFilament(item) {
+    setEditingId(item.id);
+    setFilamentForm({
+      key: item.key || "",
+      label: item.label || "",
+      description: item.description || "",
+      temperature: item.temperature || "",
+      density: String(item.density ?? "1.24"),
+      materialMultiplier: String(item.materialMultiplier ?? "1"),
+      machineMultiplier: String(item.machineMultiplier ?? "1"),
+      priceHufPerGram: String(item.priceHufPerGram ?? "30"),
+      sortOrder: String(item.sortOrder ?? "0"),
+      colors: item.colors?.length ? item.colors : [{ name: "", hex: "#ffffff" }],
+    });
+  }
+
+  function handleDeleteFilament(item) {
+    const confirmed = window.confirm(`Delete filament "${item.label}" permanently?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    deleteFilamentMutation.mutate(item.id);
+  }
+
+  function handleFilamentSubmit(event) {
+    event.preventDefault();
+
+    const payload = buildFilamentPayload(filamentForm);
+
+    if (!payload.label || !payload.key) {
+      return;
+    }
+
+    if (editingId) {
+      updateFilamentMutation.mutate({ id: editingId, payload });
+    } else {
+      createFilamentMutation.mutate(payload);
+    }
+  }
+
+  return (
+    <section className="neon-panel mt-6 rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
+      <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
+        <div>
+          <p className="text-sm text-slate-500">Calculator Settings</p>
+          <h2 className="text-xl font-semibold text-sky-900">Filament Options</h2>
+        </div>
+        <p className="text-sm font-semibold text-slate-500">{filaments.length} options</p>
+      </div>
+
+      <form className="mt-4 space-y-4" onSubmit={handleFilamentSubmit}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block text-sm font-medium text-slate-700">
+            Key
+            <input
+              type="text"
+              value={filamentForm.key}
+              onChange={(event) =>
+                setFilamentForm((value) => ({ ...value, key: event.target.value }))
+              }
+              placeholder="PLA"
+              maxLength={40}
+              required
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Label
+            <input
+              type="text"
+              value={filamentForm.label}
+              onChange={(event) =>
+                setFilamentForm((value) => ({ ...value, label: event.target.value }))
+              }
+              placeholder="PLA"
+              maxLength={80}
+              required
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+            />
+          </label>
+        </div>
+
+        <label className="block text-sm font-medium text-slate-700">
+          Description
+          <textarea
+            value={filamentForm.description}
+            onChange={(event) =>
+              setFilamentForm((value) => ({ ...value, description: event.target.value }))
+            }
+            maxLength={400}
+            rows={2}
+            className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+          />
+        </label>
+
+        <div className="grid gap-4 md:grid-cols-5">
+          <label className="block text-sm font-medium text-slate-700 md:col-span-2">
+            Temperature
+            <input
+              type="text"
+              value={filamentForm.temperature}
+              onChange={(event) =>
+                setFilamentForm((value) => ({ ...value, temperature: event.target.value }))
+              }
+              placeholder="kb. 50-60 °C"
+              maxLength={80}
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Density
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={filamentForm.density}
+              onChange={(event) =>
+                setFilamentForm((value) => ({ ...value, density: event.target.value }))
+              }
+              required
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Ft/g
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={filamentForm.priceHufPerGram}
+              onChange={(event) =>
+                setFilamentForm((value) => ({ ...value, priceHufPerGram: event.target.value }))
+              }
+              required
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Order
+            <input
+              type="number"
+              step="1"
+              value={filamentForm.sortOrder}
+              onChange={(event) =>
+                setFilamentForm((value) => ({ ...value, sortOrder: event.target.value }))
+              }
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block text-sm font-medium text-slate-700">
+            Material multiplier
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={filamentForm.materialMultiplier}
+              onChange={(event) =>
+                setFilamentForm((value) => ({
+                  ...value,
+                  materialMultiplier: event.target.value,
+                }))
+              }
+              required
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Machine multiplier
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={filamentForm.machineMultiplier}
+              onChange={(event) =>
+                setFilamentForm((value) => ({
+                  ...value,
+                  machineMultiplier: event.target.value,
+                }))
+              }
+              required
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+            />
+          </label>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-700">Colors</p>
+            <button
+              type="button"
+              onClick={handleAddColor}
+              className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-50"
+            >
+              Add Color
+            </button>
+          </div>
+          <div className="mt-2 space-y-2">
+            {filamentForm.colors.map((color, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-[auto_1fr_8rem_auto] sm:items-center">
+                <input
+                  type="color"
+                  value={HEX_COLOR_PATTERN.test(color.hex) ? color.hex : "#ffffff"}
+                  onChange={(event) => handleColorChange(index, { hex: event.target.value })}
+                  className="h-10 w-14 rounded-md border border-slate-300 p-1"
+                  aria-label="Color swatch"
+                />
+                <input
+                  type="text"
+                  value={color.name}
+                  onChange={(event) => handleColorChange(index, { name: event.target.value })}
+                  placeholder="Color name"
+                  maxLength={60}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+                />
+                <input
+                  type="text"
+                  value={color.hex}
+                  onChange={(event) => handleColorChange(index, { hex: event.target.value })}
+                  pattern="#(?:[0-9a-fA-F]{3}){1,2}"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveColor(index)}
+                  className="rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-500"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="neon-button rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSaving ? "Saving..." : editingId ? "Save Filament" : "Add Filament"}
+          </button>
+          {editingId ? (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="neon-button-secondary rounded-md px-4 py-2 text-sm"
+            >
+              Cancel Edit
+            </button>
+          ) : null}
+        </div>
+      </form>
+
+      {createFilamentMutation.isError ? (
+        <p className="mt-4 text-sm text-red-600">{createFilamentMutation.error.message}</p>
+      ) : null}
+      {updateFilamentMutation.isError ? (
+        <p className="mt-4 text-sm text-red-600">{updateFilamentMutation.error.message}</p>
+      ) : null}
+      {deleteFilamentMutation.isError ? (
+        <p className="mt-4 text-sm text-red-600">{deleteFilamentMutation.error.message}</p>
+      ) : null}
+      {filamentsQuery.isError ? (
+        <p className="mt-4 text-sm text-red-600">{filamentsQuery.error.message}</p>
+      ) : null}
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-2">
+        {filaments.map((item) => (
+          <article key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  {item.label} <span className="text-xs text-slate-500">({item.key})</span>
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {formatCurrency(item.priceHufPerGram)} / g · density {item.density}
+                </p>
+                {item.description ? (
+                  <p className="mt-2 text-xs text-slate-600">{item.description}</p>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleEditFilament(item)}
+                  className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-50"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteFilament(item)}
+                  disabled={deleteFilamentMutation.isPending && deleteFilamentMutation.variables === item.id}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {deleteFilamentMutation.isPending && deleteFilamentMutation.variables === item.id
+                    ? "Deleting..."
+                    : "Delete"}
+                </button>
+              </div>
+            </div>
+            {item.colors?.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {item.colors.map((color) => (
+                  <span
+                    key={`${item.id}-${color.hex}-${color.name}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200"
+                  >
+                    <span
+                      className="h-4 w-4 rounded-full border border-slate-400"
+                      style={{ backgroundColor: color.hex }}
+                    />
+                    {color.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">No colors configured.</p>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export default function AdminDashboard() {
@@ -401,6 +987,10 @@ export default function AdminDashboard() {
           </article>
         </section>
 
+        <CalculatorSettingsManager token={token} enabled={Boolean(token && meQuery.isSuccess)} />
+
+        <FilamentManager token={token} enabled={Boolean(token && meQuery.isSuccess)} />
+
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <div className="neon-panel rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
             <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
@@ -682,6 +1272,7 @@ export default function AdminDashboard() {
                     </p>
                     <p>
                       <span className="font-medium">Material:</span> {item.material?.label || "n/a"}
+                      {item.material?.color?.name ? `, ${item.material.color.name}` : ""}
                     </p>
                     <p>
                       <span className="font-medium">Estimated Total:</span> {formatCurrency(item.quote?.total)}

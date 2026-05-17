@@ -8,13 +8,11 @@ export default function Navbar() {
     setOpen(false);
   }
 
+  const navLinkBase =
+    "neon-nav-link block rounded-md px-4 py-3 text-sm font-semibold uppercase tracking-wide transition md:px-2 md:py-2";
+
   const navLinkClass = ({ isActive }) =>
-    [
-      "rounded-md px-4 py-3 text-sm font-semibold uppercase tracking-wide transition md:px-2 md:py-2",
-      isActive
-        ? "text-cyan-200 shadow-[0_0_18px_rgba(0,153,255,0.28)]"
-        : "text-cyan-100/80 hover:text-red-300",
-    ].join(" ");
+    [navLinkBase, isActive ? "is-active" : ""].filter(Boolean).join(" ");
 
   return (
     <header className="sticky top-0 z-50 border-b border-cyan-400/25 bg-[#05070d]/90 shadow-[0_0_28px_rgba(0,149,255,0.22)] backdrop-blur-xl">
@@ -61,15 +59,6 @@ export default function Navbar() {
           ].join(" ")}
         >
           <ul className="flex flex-col items-stretch gap-1 md:flex-row md:items-center md:gap-3">
-            <li>
-              <a
-                href="/#features"
-                className="block rounded-md px-4 py-3 text-sm font-semibold uppercase tracking-wide text-cyan-100/80 transition hover:text-red-300 md:px-2 md:py-2"
-                onClick={handleNavigate}
-              >
-                Szolgáltatások
-              </a>
-            </li>
             <li>
               <NavLink to="/modellek" className={navLinkClass} onClick={handleNavigate}>
                 Modellek

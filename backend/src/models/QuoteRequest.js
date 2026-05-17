@@ -24,6 +24,10 @@ const quoteRequestSchema = new mongoose.Schema(
       description: { type: String, default: "" },
       temperature: { type: String, default: "" },
       priceHufPerGram: { type: Number, default: null },
+      color: {
+        name: { type: String, default: "" },
+        hex: { type: String, default: "" },
+      },
     },
     analysis: { type: mongoose.Schema.Types.Mixed, default: {} },
     quote: { type: mongoose.Schema.Types.Mixed, default: {} },

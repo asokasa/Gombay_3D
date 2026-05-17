@@ -31,9 +31,6 @@ export default function Hero() {
             <Link to="/ajanlatkeres" className="neon-button px-6 py-3">
               Ajánlatkérés
             </Link>
-            <a href="#features" className="neon-button-secondary px-6 py-3">
-              Szolgáltatások
-            </a>
           </div>
         </div>
 

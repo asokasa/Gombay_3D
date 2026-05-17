@@ -87,6 +87,7 @@ export async function sendQuoteRequestNotification(quoteRequest) {
     `Message: ${customer.message || "n/a"}`,
     "",
     `Material: ${material.label || material.key || "n/a"}`,
+    `Color: ${material.color?.name || "n/a"}`,
     `Estimated total: ${formatCurrencyHuf(quote.total)}`,
     `Estimated print time: ${Number.isFinite(Number(quote.hours)) ? `${Number(quote.hours).toFixed(2)} h` : "n/a"}`,
     `Scaled size: ${scaledSizeText} cm`,

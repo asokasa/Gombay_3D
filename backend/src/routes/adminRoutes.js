@@ -10,6 +10,12 @@ import {
   deleteReferenceImage,
 } from "../controllers/mediaController.js";
 import {
+  createFilament,
+  deleteFilament,
+  updateFilament,
+} from "../controllers/filamentController.js";
+import { updateCalculatorSettings } from "../controllers/calculatorSettingsController.js";
+import {
   deleteQuoteRequest,
   downloadQuoteRequestFile,
   listQuoteRequests,
@@ -47,5 +53,9 @@ router.post("/reference-images", imageUpload.single("image"), asyncHandler(creat
 router.delete("/reference-images/:id", asyncHandler(deleteReferenceImage));
 router.post("/premade-models", imageUpload.single("image"), asyncHandler(createPremadeModel));
 router.delete("/premade-models/:id", asyncHandler(deletePremadeModel));
+router.post("/filaments", asyncHandler(createFilament));
+router.patch("/filaments/:id", asyncHandler(updateFilament));
+router.delete("/filaments/:id", asyncHandler(deleteFilament));
+router.patch("/calculator-settings", asyncHandler(updateCalculatorSettings));
 
 export default router;
