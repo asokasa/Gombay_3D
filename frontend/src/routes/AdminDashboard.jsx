@@ -93,9 +93,7 @@ function formatDimensions(values) {
   if (!Array.isArray(values) || values.length === 0) {
     return "n/a";
   }
-  return values
-    .map((value) => `${Number(value).toFixed(2)} cm`)
-    .join(" x ");
+  return values.map((value) => `${Number(value).toFixed(2)} cm`).join(" x ");
 }
 
 function buildFilamentPayload(form) {
@@ -123,20 +121,20 @@ function buildSettingsForm(settings) {
     CALCULATOR_SETTING_FIELDS.map((field) => [
       field.key,
       String(settings?.[field.key] ?? DEFAULT_CALCULATOR_SETTINGS[field.key]),
-    ]),
+    ])
   );
 }
 
 function buildSettingsPayload(form) {
   return Object.fromEntries(
-    CALCULATOR_SETTING_FIELDS.map((field) => [field.key, Number(form[field.key])]),
+    CALCULATOR_SETTING_FIELDS.map((field) => [field.key, Number(form[field.key])])
   );
 }
 
 function CalculatorSettingsManager({ token, enabled }) {
   const queryClient = useQueryClient();
   const [settingsForm, setSettingsForm] = useState(() =>
-    buildSettingsForm(DEFAULT_CALCULATOR_SETTINGS),
+    buildSettingsForm(DEFAULT_CALCULATOR_SETTINGS)
   );
 
   const settingsQuery = useQuery({
@@ -304,7 +302,7 @@ function FilamentManager({ token, enabled }) {
     setFilamentForm((current) => ({
       ...current,
       colors: current.colors.map((color, colorIndex) =>
-        colorIndex === index ? { ...color, ...patch } : color,
+        colorIndex === index ? { ...color, ...patch } : color
       ),
     }));
   }
@@ -526,7 +524,10 @@ function FilamentManager({ token, enabled }) {
           </div>
           <div className="mt-2 space-y-2">
             {filamentForm.colors.map((color, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[auto_1fr_8rem_auto] sm:items-center">
+              <div
+                key={index}
+                className="grid gap-2 sm:grid-cols-[auto_1fr_8rem_auto] sm:items-center"
+              >
                 <input
                   type="color"
                   value={HEX_COLOR_PATTERN.test(color.hex) ? color.hex : "#ffffff"}
@@ -620,7 +621,9 @@ function FilamentManager({ token, enabled }) {
                 <button
                   type="button"
                   onClick={() => handleDeleteFilament(item)}
-                  disabled={deleteFilamentMutation.isPending && deleteFilamentMutation.variables === item.id}
+                  disabled={
+                    deleteFilamentMutation.isPending && deleteFilamentMutation.variables === item.id
+                  }
                   className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {deleteFilamentMutation.isPending && deleteFilamentMutation.variables === item.id
@@ -959,7 +962,8 @@ export default function AdminDashboard() {
             <p className="text-sm text-slate-500">Admin Dashboard</p>
             <h1 className="neon-heading text-2xl font-bold">Welcome, {admin?.name || "Admin"}</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Signed in as <span className="font-medium text-slate-800">{admin?.username || admin?.email}</span>
+              Signed in as{" "}
+              <span className="font-medium text-slate-800">{admin?.username || admin?.email}</span>
             </p>
           </div>
           <button
@@ -998,7 +1002,9 @@ export default function AdminDashboard() {
                 <p className="text-sm text-slate-500">Referenciak Gallery</p>
                 <h2 className="text-xl font-semibold text-sky-900">Upload Reference Image</h2>
               </div>
-              <p className="text-sm font-semibold text-slate-500">{referenceImages.length} images</p>
+              <p className="text-sm font-semibold text-slate-500">
+                {referenceImages.length} images
+              </p>
             </div>
 
             <form className="mt-4 space-y-4" onSubmit={handleReferenceSubmit}>
@@ -1007,7 +1013,9 @@ export default function AdminDashboard() {
                 <input
                   type="text"
                   value={referenceForm.title}
-                  onChange={(event) => setReferenceForm((value) => ({ ...value, title: event.target.value }))}
+                  onChange={(event) =>
+                    setReferenceForm((value) => ({ ...value, title: event.target.value }))
+                  }
                   maxLength={120}
                   required
                   className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
@@ -1050,21 +1058,30 @@ export default function AdminDashboard() {
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {referenceImages.map((item) => (
-                <article key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <article
+                  key={item.id}
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                >
                   <img
                     src={item.image?.url}
                     alt={item.title}
                     className="aspect-square w-full rounded-md object-cover"
                   />
                   <div className="mt-3 flex items-center justify-between gap-3">
-                    <p className="min-w-0 truncate text-sm font-semibold text-slate-800">{item.title}</p>
+                    <p className="min-w-0 truncate text-sm font-semibold text-slate-800">
+                      {item.title}
+                    </p>
                     <button
                       type="button"
                       onClick={() => handleReferenceDelete(item)}
-                      disabled={deleteReferenceMutation.isPending && deleteReferenceMutation.variables === item.id}
+                      disabled={
+                        deleteReferenceMutation.isPending &&
+                        deleteReferenceMutation.variables === item.id
+                      }
                       className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
-                      {deleteReferenceMutation.isPending && deleteReferenceMutation.variables === item.id
+                      {deleteReferenceMutation.isPending &&
+                      deleteReferenceMutation.variables === item.id
                         ? "Deleting..."
                         : "Delete"}
                     </button>
@@ -1089,7 +1106,9 @@ export default function AdminDashboard() {
                 <input
                   type="text"
                   value={modelForm.title}
-                  onChange={(event) => setModelForm((value) => ({ ...value, title: event.target.value }))}
+                  onChange={(event) =>
+                    setModelForm((value) => ({ ...value, title: event.target.value }))
+                  }
                   maxLength={120}
                   required
                   className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
@@ -1116,7 +1135,9 @@ export default function AdminDashboard() {
                     min="0"
                     step="1"
                     value={modelForm.priceHuf}
-                    onChange={(event) => setModelForm((value) => ({ ...value, priceHuf: event.target.value }))}
+                    onChange={(event) =>
+                      setModelForm((value) => ({ ...value, priceHuf: event.target.value }))
+                    }
                     required
                     className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
                   />
@@ -1126,7 +1147,9 @@ export default function AdminDashboard() {
                   <input
                     type="text"
                     value={modelForm.size}
-                    onChange={(event) => setModelForm((value) => ({ ...value, size: event.target.value }))}
+                    onChange={(event) =>
+                      setModelForm((value) => ({ ...value, size: event.target.value }))
+                    }
                     maxLength={80}
                     placeholder="12 x 8 x 4 cm"
                     required
@@ -1171,7 +1194,10 @@ export default function AdminDashboard() {
 
             <div className="mt-5 space-y-3">
               {premadeModels.map((item) => (
-                <article key={item.id} className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <article
+                  key={item.id}
+                  className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
+                >
                   <img
                     src={item.image?.url}
                     alt={item.title}
@@ -1187,7 +1213,9 @@ export default function AdminDashboard() {
                   <button
                     type="button"
                     onClick={() => handleModelDelete(item)}
-                    disabled={deleteModelMutation.isPending && deleteModelMutation.variables === item.id}
+                    disabled={
+                      deleteModelMutation.isPending && deleteModelMutation.variables === item.id
+                    }
                     className="self-start rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
                     {deleteModelMutation.isPending && deleteModelMutation.variables === item.id
@@ -1245,11 +1273,16 @@ export default function AdminDashboard() {
 
           <div className="mt-4 space-y-4">
             {visibleQuoteRequests.map((item) => (
-              <article key={item.id} className="neon-card rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <article
+                key={item.id}
+                className="neon-card rounded-lg border border-slate-200 bg-slate-50 p-4"
+              >
                 <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-slate-900">{item.customer?.name || "Unnamed"}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {item.customer?.name || "Unnamed"}
+                      </h3>
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
                           STATUS_CLASSES[item.status] || STATUS_CLASSES.new
@@ -1271,19 +1304,52 @@ export default function AdminDashboard() {
                       <span className="font-medium">Submitted:</span> {formatDate(item.createdAt)}
                     </p>
                     <p>
+                      <span className="font-medium">Type:</span>{" "}
+                      {item.requestType === "premade" ? "Premade model" : "Custom upload"}
+                    </p>
+                    {item.requestType === "premade" ? (
+                      <p>
+                        <span className="font-medium">Selected Model:</span>{" "}
+                        {item.premadeModel?.title || item.quote?.modelTitle || "n/a"}
+                      </p>
+                    ) : null}
+                    <p>
                       <span className="font-medium">Material:</span> {item.material?.label || "n/a"}
                       {item.material?.color?.name ? `, ${item.material.color.name}` : ""}
                     </p>
+                    {item.requestType !== "premade" ? (
+                      <p>
+                        <span className="font-medium">Print:</span>{" "}
+                        {item.quote?.printProfile?.label || "n/a"}
+                        {Number.isFinite(Number(item.quote?.infillPercent))
+                          ? `, ${Number(item.quote.infillPercent)}% infill`
+                          : ""}
+                      </p>
+                    ) : null}
                     <p>
-                      <span className="font-medium">Estimated Total:</span> {formatCurrency(item.quote?.total)}
+                      <span className="font-medium">Quantity:</span>{" "}
+                      {Number.isFinite(Number(item.quote?.quantity))
+                        ? `${Math.max(1, Math.trunc(Number(item.quote.quantity)))} pcs`
+                        : "1 pc"}
                     </p>
                     <p>
-                      <span className="font-medium">Scaled Size:</span>{" "}
-                      {formatDimensions(item.scaledSizeCm || item.analysis?.sizeCm)}
+                      <span className="font-medium">Estimated Total:</span>{" "}
+                      {formatCurrency(item.quote?.total)}
                     </p>
                     <p>
-                      <span className="font-medium">File Size:</span> {formatSizeMb(item.file?.sizeBytes)}
+                      <span className="font-medium">
+                        {item.requestType === "premade" ? "Model Size:" : "Scaled Size:"}
+                      </span>{" "}
+                      {item.requestType === "premade"
+                        ? item.premadeModel?.size || "n/a"
+                        : formatDimensions(item.scaledSizeCm || item.analysis?.sizeCm)}
                     </p>
+                    {item.file?.url ? (
+                      <p>
+                        <span className="font-medium">File Size:</span>{" "}
+                        {formatSizeMb(item.file?.sizeBytes)}
+                      </p>
+                    ) : null}
                     {item.file?.url ? (
                       <div className="mt-2 flex flex-wrap items-center gap-3">
                         <a
@@ -1313,7 +1379,8 @@ export default function AdminDashboard() {
                     disabled={pendingActionId === item.id || item.status === "approved"}
                     className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
-                    {pendingActionId === item.id && updateStatusMutation.variables?.status === "approved"
+                    {pendingActionId === item.id &&
+                    updateStatusMutation.variables?.status === "approved"
                       ? "Approving..."
                       : "Approve"}
                   </button>
@@ -1333,7 +1400,8 @@ export default function AdminDashboard() {
                       disabled={pendingActionId === item.id}
                       className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                     >
-                      {pendingActionId === item.id && updateStatusMutation.variables?.status === "archived"
+                      {pendingActionId === item.id &&
+                      updateStatusMutation.variables?.status === "archived"
                         ? "Archiving..."
                         : "Archive"}
                     </button>
@@ -1344,7 +1412,9 @@ export default function AdminDashboard() {
                     disabled={pendingActionId === item.id}
                     className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
-                    {pendingActionId === item.id && deleteMutation.variables === item.id ? "Deleting..." : "Delete"}
+                    {pendingActionId === item.id && deleteMutation.variables === item.id
+                      ? "Deleting..."
+                      : "Delete"}
                   </button>
                 </div>
                 <details className="mt-3 rounded-md bg-white p-3 text-xs text-slate-700">
@@ -1356,6 +1426,8 @@ export default function AdminDashboard() {
                       {
                         id: item.id,
                         customer: item.customer,
+                        requestType: item.requestType,
+                        premadeModel: item.premadeModel,
                         material: item.material,
                         unitOverride: item.unitOverride,
                         detectedUnitLabel: item.detectedUnitLabel,
@@ -1368,7 +1440,7 @@ export default function AdminDashboard() {
                         updatedAt: item.updatedAt,
                       },
                       null,
-                      2,
+                      2
                     )}
                   </pre>
                 </details>

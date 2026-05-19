@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-const DEFAULT_QUOTE_NOTIFICATION_TO = "balint.macsek@gmail.com";
+const DEFAULT_QUOTE_NOTIFICATION_TO = "Gombay3d@gmail.com";
 
 function normalizeList(value) {
   return String(value || "")
@@ -51,7 +51,9 @@ function buildTransporter() {
 }
 
 function getNotificationRecipients() {
-  return normalizeList(process.env.QUOTE_NOTIFICATION_TO || DEFAULT_QUOTE_NOTIFICATION_TO);
+  return normalizeList(
+    process.env.QUOTE_NOTIFICATION_TO || DEFAULT_QUOTE_NOTIFICATION_TO,
+  );
 }
 
 export function isQuoteNotificationConfigured() {
@@ -63,19 +65,28 @@ export async function sendQuoteRequestNotification(quoteRequest) {
   const recipients = getNotificationRecipients();
 
   if (!transporter || recipients.length === 0) {
-    console.warn("Quote request email notification skipped because SMTP is not configured.");
+    console.warn(
+      "Quote request email notification skipped because SMTP is not configured.",
+    );
     return false;
   }
 
   const customer = quoteRequest?.customer || {};
   const file = quoteRequest?.file || {};
   const material = quoteRequest?.material || {};
+  const premadeModel = quoteRequest?.premadeModel || {};
   const quote = quoteRequest?.quote || {};
   const analysis = quoteRequest?.analysis || {};
-  const scaledSizeCm = Array.isArray(quoteRequest?.scaledSizeCm) ? quoteRequest.scaledSizeCm : [];
+  const scaledSizeCm = Array.isArray(quoteRequest?.scaledSizeCm)
+    ? quoteRequest.scaledSizeCm
+    : [];
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
   const dashboardUrl = process.env.ADMIN_DASHBOARD_URL || "";
-  const scaledSizeText = scaledSizeCm.length > 0 ? scaledSizeCm.join(" x ") : "n/a";
+  const scaledSizeText =
+    scaledSizeCm.length > 0 ? scaledSizeCm.join(" x ") : "n/a";
+  const quantity = Number.isFinite(Number(quote.quantity))
+    ? Math.max(1, Math.trunc(Number(quote.quantity)))
+    : 1;
 
   const subject = `New quote request from ${customer.name || "Unknown customer"}`;
   const text = [
@@ -86,16 +97,45 @@ export async function sendQuoteRequestNotification(quoteRequest) {
     `Address: ${customer.address || "n/a"}`,
     `Message: ${customer.message || "n/a"}`,
     "",
+    `Request type: ${quoteRequest?.requestType === "premade" ? "Premade model" : "Custom upload"}`,
+    ...(quoteRequest?.requestType === "premade"
+      ? [
+          `Selected model: ${premadeModel.title || quote.modelTitle || "n/a"}`,
+          `Model size: ${premadeModel.size || "n/a"}`,
+          `Model unit price: ${formatCurrencyHuf(premadeModel.priceHuf ?? quote.unitPriceHuf)}`,
+        ]
+      : []),
     `Material: ${material.label || material.key || "n/a"}`,
     `Color: ${material.color?.name || "n/a"}`,
+    `Quantity: ${quantity} pcs`,
+    ...(quoteRequest?.requestType === "premade"
+      ? []
+      : [
+          `Print profile: ${quote.printProfile?.label || "n/a"}${
+            Number.isFinite(Number(quote.printProfile?.layerHeightMm))
+              ? ` (${Number(quote.printProfile.layerHeightMm).toFixed(1)} mm layer)`
+              : ""
+          }`,
+          `Infill: ${Number.isFinite(Number(quote.infillPercent)) ? `${Number(quote.infillPercent)}%` : "n/a"}`,
+        ]),
     `Estimated total: ${formatCurrencyHuf(quote.total)}`,
-    `Estimated print time: ${Number.isFinite(Number(quote.hours)) ? `${Number(quote.hours).toFixed(2)} h` : "n/a"}`,
+    ...(quoteRequest?.requestType === "premade"
+      ? []
+      : [
+          `Estimated print time total: ${Number.isFinite(Number(quote.hours)) ? `${Number(quote.hours).toFixed(2)} h` : "n/a"}`,
+          `Estimated material volume total: ${Number.isFinite(Number(quote.effectiveVolumeCm3)) ? `${Number(quote.effectiveVolumeCm3).toFixed(2)} cm3` : "n/a"}`,
+        ]),
     `Scaled size: ${scaledSizeText} cm`,
     "",
-    `Uploaded file: ${file.originalName || "n/a"}`,
-    `File size: ${formatSizeMb(file.sizeBytes)}`,
-    `File URL: ${file.url || "n/a"}`,
-    `Download path: ${file.downloadPath || "n/a"}`,
+    ...(file.url
+      ? [
+          "",
+          `Uploaded file: ${file.originalName || "n/a"}`,
+          `File size: ${formatSizeMb(file.sizeBytes)}`,
+          `File URL: ${file.url || "n/a"}`,
+          `Download path: ${file.downloadPath || "n/a"}`,
+        ]
+      : []),
     "",
     `Detected unit: ${quoteRequest?.detectedUnitLabel || analysis.detectedUnit || "n/a"}`,
     `Submitted at: ${quoteRequest?.createdAt ? new Date(quoteRequest.createdAt).toISOString() : new Date().toISOString()}`,

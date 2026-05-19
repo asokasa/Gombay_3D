@@ -3,8 +3,11 @@ import { Canvas, extend, useFrame, useLoader, useThree } from "@react-three/fibe
 import { useQuery } from "@tanstack/react-query";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { PremadeModelCard, PremadeModelRequestForm } from "../components/PremadeModelRequest";
+import { buildPremadeModelList } from "../lib/premadeModels";
 import {
   FILAMENT_ORDER,
+  PRINT_PROFILE_ORDER,
   MAX_DIMENSION_CM,
   DEFAULT_CALCULATOR_SETTINGS,
   analyze3DFile,
@@ -15,13 +18,195 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
-import { Box3, DoubleSide, MeshStandardMaterial, Vector3 } from "three";
+import {
+  AdditiveBlending,
+  Box3,
+  BoxGeometry,
+  DoubleSide,
+  Euler,
+  Matrix4,
+  MeshStandardMaterial,
+  Vector3,
+} from "three";
 
 extend({ OrbitControls });
 
-function CameraControls() {
+const DEFAULT_MODEL_COLOR = "#38bdf8";
+const CANVAS_BACKGROUND_COLOR = "#00A3E8";
+const BUILD_PLATE_COLOR = "#006EA8";
+const BUILD_VOLUME_SCENE_SIZE = 12;
+const SCENE_UNITS_PER_CM = BUILD_VOLUME_SCENE_SIZE / MAX_DIMENSION_CM;
+const BUILD_VOLUME_CM = [MAX_DIMENSION_CM, MAX_DIMENSION_CM, MAX_DIMENSION_CM];
+const FIT_EDGE_COLOR = "#00b85f";
+const FIT_EDGE_GLOW_COLOR = "#28ff8f";
+const FAIL_EDGE_COLOR = "#ff3355";
+const DEFAULT_MODEL_ROTATION = { x: 0, y: 0, z: 0 };
+const SIZE_AXIS_LABELS = [
+  ["x", "X"],
+  ["y", "Y"],
+  ["z", "Z"],
+];
+const ROTATION_AXIS_LABELS = SIZE_AXIS_LABELS;
+
+function getRotatedBoundsInfoCm(sizeCm = [], rotationDegrees = DEFAULT_MODEL_ROTATION) {
+  const [x = 0, y = 0, z = 0] = sizeCm;
+  const halfDimensions = [
+    Math.max(0, Number(x) || 0) / 2,
+    Math.max(0, Number(y) || 0) / 2,
+    Math.max(0, Number(z) || 0) / 2,
+  ];
+  const matrix = new Matrix4().makeRotationFromEuler(
+    new Euler(
+      ((Number(rotationDegrees.x) || 0) * Math.PI) / 180,
+      ((Number(rotationDegrees.y) || 0) * Math.PI) / 180,
+      ((Number(rotationDegrees.z) || 0) * Math.PI) / 180,
+      "XYZ"
+    )
+  );
+  const min = new Vector3(Infinity, Infinity, Infinity);
+  const max = new Vector3(-Infinity, -Infinity, -Infinity);
+  const point = new Vector3();
+
+  [-1, 1].forEach((xDirection) => {
+    [-1, 1].forEach((yDirection) => {
+      [-1, 1].forEach((zDirection) => {
+        point
+          .set(
+            xDirection * halfDimensions[0],
+            yDirection * halfDimensions[1],
+            zDirection * halfDimensions[2]
+          )
+          .applyMatrix4(matrix);
+        min.min(point);
+        max.max(point);
+      });
+    });
+  });
+
+  if (!Number.isFinite(min.x) || !Number.isFinite(max.x)) {
+    return {
+      size: [0, 0, 0],
+      min: [0, 0, 0],
+      max: [0, 0, 0],
+    };
+  }
+
+  return {
+    size: [max.x - min.x, max.y - min.y, max.z - min.z],
+    min: [min.x, min.y, min.z],
+    max: [max.x, max.y, max.z],
+  };
+}
+
+function getRotatedBoundsCm(sizeCm = [], rotationDegrees = DEFAULT_MODEL_ROTATION) {
+  return getRotatedBoundsInfoCm(sizeCm, rotationDegrees).size;
+}
+
+function getFitsBuildVolume(sizeCm = []) {
+  return BUILD_VOLUME_CM.every((limit, index) => (Number(sizeCm[index]) || 0) <= limit + 0.001);
+}
+
+function getInitialScalePercent(analysisResult) {
+  const recommendedScale = analysisResult?.autoScale?.recommendedScale;
+  const scale = Number.isFinite(recommendedScale) && recommendedScale > 0 ? recommendedScale : 1;
+  return Math.round(Math.min(2, Math.max(0.05, scale)) * 100);
+}
+
+function clampNumber(value, min, max, fallback) {
+  const parsed = Number(String(value).replace(",", "."));
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function getInitialSizeCm(analysisResult) {
+  const scale = getInitialScalePercent(analysisResult) / 100;
+  return (analysisResult?.sizeCm ?? []).map((value) => Number(value) * scale);
+}
+
+function getBestPrintableRotation(sizeCm = []) {
+  const dimensions = sizeCm.map((value) => Math.max(0, Number(value) || 0));
+  if (dimensions.length < 3 || dimensions.every((value) => value === 0)) {
+    return DEFAULT_MODEL_ROTATION;
+  }
+
+  const shortestAxisIndex = dimensions.indexOf(Math.min(...dimensions));
+  if (shortestAxisIndex === 0) {
+    return { x: 0, y: 0, z: 90 };
+  }
+  if (shortestAxisIndex === 2) {
+    return { x: 90, y: 0, z: 0 };
+  }
+  return DEFAULT_MODEL_ROTATION;
+}
+
+function getAxisScaleFactors(originalSizeCm = [], targetSizeCm = []) {
+  return [0, 1, 2].map((index) => {
+    const original = Number(originalSizeCm[index]);
+    const target = Number(targetSizeCm[index]);
+    if (!Number.isFinite(original) || original <= 0 || !Number.isFinite(target)) {
+      return 1;
+    }
+    return Math.max(0.001, target / original);
+  });
+}
+
+function getAverageScalePercent(originalSizeCm = [], targetSizeCm = []) {
+  const scaleFactors = getAxisScaleFactors(originalSizeCm, targetSizeCm);
+  const averageScale = scaleFactors.reduce((sum, value) => sum + value, 0) / scaleFactors.length;
+  return Math.round(Math.min(2, Math.max(0.05, averageScale)) * 100);
+}
+
+function resizeAnalysisForModel(analysis, targetSizeCm) {
+  if (!analysis || !targetSizeCm?.length) {
+    return analysis;
+  }
+
+  const scaleFactors = getAxisScaleFactors(analysis.sizeCm, targetSizeCm);
+  const [scaleX, scaleY, scaleZ] = scaleFactors;
+  const volumeScale = scaleX * scaleY * scaleZ;
+  const surfaceScale = (scaleX * scaleY + scaleX * scaleZ + scaleY * scaleZ) / 3;
+  const sizeMm = targetSizeCm.map((value) => value * 10);
+
+  return {
+    ...analysis,
+    sizeCm: targetSizeCm,
+    sizeMm,
+    volumeCm3: Number.isFinite(analysis.volumeCm3) ? analysis.volumeCm3 * volumeScale : 0,
+    volumeMm3: Number.isFinite(analysis.volumeMm3) ? analysis.volumeMm3 * volumeScale : 0,
+    surfaceAreaCm2: Number.isFinite(analysis.surfaceAreaCm2)
+      ? analysis.surfaceAreaCm2 * surfaceScale
+      : analysis.surfaceAreaCm2,
+    surfaceAreaMm2: Number.isFinite(analysis.surfaceAreaMm2)
+      ? analysis.surfaceAreaMm2 * surfaceScale
+      : analysis.surfaceAreaMm2,
+    autoScale: {
+      ...(analysis.autoScale ?? {}),
+      recommendedScale: 1,
+      maxAllowableScale: getFitsBuildVolume(targetSizeCm)
+        ? 1
+        : Math.min(
+            ...targetSizeCm.map((value, index) => BUILD_VOLUME_CM[index] / Math.max(0.001, value))
+          ),
+      scaledSizeCm: targetSizeCm,
+    },
+    resize: {
+      originalSizeCm: analysis.sizeCm,
+      targetSizeCm,
+      scaleFactors,
+    },
+  };
+}
+
+function CameraControls({ targetY = 0 }) {
   const controls = useRef(null);
   const { camera, gl } = useThree();
+  useEffect(() => {
+    if (!controls.current) return;
+    controls.current.target.set(0, targetY, 0);
+    controls.current.update();
+  }, [targetY]);
   useFrame(() => {
     controls.current?.update();
   });
@@ -37,22 +222,21 @@ function CameraControls() {
   );
 }
 
-function FitCamera({ bounds }) {
+function FitCamera({ sceneExtent, targetY = 0 }) {
   const { camera } = useThree();
   useEffect(() => {
-    if (!bounds?.length) return;
-    const maxDimension = Math.max(...bounds);
+    const maxDimension = Math.max(1, sceneExtent);
     const distance = Math.max(4, maxDimension * 1.8);
-    camera.position.set(distance, distance, distance);
+    camera.position.set(distance, targetY + distance * 0.72, distance);
     camera.near = 0.1;
     camera.far = Math.max(500, distance * 6);
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(0, targetY, 0);
     camera.updateProjectionMatrix();
-  }, [bounds, camera]);
+  }, [camera, sceneExtent, targetY]);
   return null;
 }
 
-function StlModel({ url, viewerScale }) {
+function StlModel({ url, viewerScale, modelColor }) {
   const geometry = useLoader(STLLoader, url);
   useEffect(() => {
     geometry.center();
@@ -60,70 +244,149 @@ function StlModel({ url, viewerScale }) {
   }, [geometry]);
   return (
     <mesh geometry={geometry} scale={viewerScale} castShadow receiveShadow>
-      <meshStandardMaterial color="#38bdf8" metalness={0.2} roughness={0.6} />
+      <meshStandardMaterial color={modelColor} metalness={0.2} roughness={0.6} />
     </mesh>
   );
 }
 
-function ObjModel({ url, viewerScale }) {
+function ObjModel({ url, viewerScale, modelColor }) {
   const object = useLoader(OBJLoader, url);
   useEffect(() => {
-    const material = new MeshStandardMaterial({
-      color: "#FF0000",
-      metalness: 0.15,
-      roughness: 0.65,
-      side: DoubleSide,
-    });
     object.traverse((child) => {
       if (child.isMesh) {
         child.geometry.center();
-        child.material = material;
       }
     });
     const box = new Box3().setFromObject(object);
     const center = box.getCenter(new Vector3());
     object.position.sub(center);
   }, [object]);
+
+  useEffect(() => {
+    const material = new MeshStandardMaterial({
+      color: modelColor,
+      metalness: 0.15,
+      roughness: 0.65,
+      side: DoubleSide,
+    });
+    object.traverse((child) => {
+      if (child.isMesh) {
+        child.material = material;
+      }
+    });
+    return () => {
+      material.dispose();
+    };
+  }, [modelColor, object]);
+
   return <primitive object={object} scale={viewerScale} />;
 }
 
-function GltfModel({ url, viewerScale }) {
+function GltfModel({ url, viewerScale, modelColor }) {
   const gltf = useLoader(GLTFLoader, url);
   const scene = useMemo(() => gltf.scene.clone(true), [gltf]);
   useEffect(() => {
-    const material = new MeshStandardMaterial({
-      color: "#38bdf8",
-      metalness: 0.2,
-      roughness: 0.6,
-      side: DoubleSide,
-    });
     scene.traverse((child) => {
       if (child.isMesh) {
         child.geometry.computeVertexNormals();
-        child.material = material;
       }
     });
     const box = new Box3().setFromObject(scene);
     const center = box.getCenter(new Vector3());
     scene.position.sub(center);
   }, [scene]);
+
+  useEffect(() => {
+    const material = new MeshStandardMaterial({
+      color: modelColor,
+      metalness: 0.2,
+      roughness: 0.6,
+      side: DoubleSide,
+    });
+    scene.traverse((child) => {
+      if (child.isMesh) {
+        child.material = material;
+      }
+    });
+    return () => {
+      material.dispose();
+    };
+  }, [modelColor, scene]);
+
   return <primitive object={scene} scale={viewerScale} />;
 }
 
-function StepPreview({ sizeCm }) {
+function StepPreview({ sizeCm, modelColor }) {
   const [x = 0, y = 0, z = 0] = sizeCm ?? [];
-  const safeX = x || 1;
-  const safeY = y || 1;
-  const safeZ = z || 1;
+  const safeX = (x || 1) * SCENE_UNITS_PER_CM;
+  const safeY = (y || 1) * SCENE_UNITS_PER_CM;
+  const safeZ = (z || 1) * SCENE_UNITS_PER_CM;
   return (
     <mesh scale={[safeX, safeY, safeZ]}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#38bdf8" transparent opacity={0.4} wireframe />
+      <meshStandardMaterial color={modelColor} transparent opacity={0.4} wireframe />
     </mesh>
   );
 }
 
-function ModelPreview({ file, analysis, scaledSizeCm, quoteScale = 1 }) {
+function BuildVolumeCuboid({ fitsBuildVolume }) {
+  const edgeColor = fitsBuildVolume ? FIT_EDGE_COLOR : FAIL_EDGE_COLOR;
+  const buildVolumeSceneSize = BUILD_VOLUME_CM.map((value) => value * SCENE_UNITS_PER_CM);
+  const [width, height, depth] = buildVolumeSceneSize;
+  const edgeGeometry = useMemo(() => new BoxGeometry(width, height, depth), [depth, height, width]);
+
+  return (
+    <group position={[0, height / 2, 0]}>
+      <mesh position={[0, -height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[width, depth]} />
+        <meshStandardMaterial color={BUILD_PLATE_COLOR} roughness={0.82} metalness={0.04} />
+      </mesh>
+      <mesh>
+        <boxGeometry args={buildVolumeSceneSize} />
+        <meshBasicMaterial
+          color={edgeColor}
+          transparent
+          opacity={0.045}
+          blending={AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      <lineSegments>
+        <edgesGeometry args={[edgeGeometry]} />
+        <lineBasicMaterial color={edgeColor} transparent opacity={1} linewidth={2} />
+      </lineSegments>
+      <lineSegments scale={1.01}>
+        <edgesGeometry args={[edgeGeometry]} />
+        <lineBasicMaterial
+          color={fitsBuildVolume ? FIT_EDGE_GLOW_COLOR : edgeColor}
+          transparent
+          opacity={0.52}
+          linewidth={4}
+        />
+      </lineSegments>
+      <lineSegments scale={1.028}>
+        <edgesGeometry args={[edgeGeometry]} />
+        <lineBasicMaterial
+          color={fitsBuildVolume ? FIT_EDGE_GLOW_COLOR : edgeColor}
+          transparent
+          opacity={0.24}
+          linewidth={8}
+        />
+      </lineSegments>
+    </group>
+  );
+}
+
+function ModelPreview({
+  file,
+  analysis,
+  modelSizeCm,
+  axisScaleFactors,
+  modelRotation = DEFAULT_MODEL_ROTATION,
+  rotatedSizeCm,
+  fitsBuildVolume = true,
+  modelColor = DEFAULT_MODEL_COLOR,
+}) {
   const [objectUrl, setObjectUrl] = useState(null);
   useEffect(() => {
     if (!file) {
@@ -139,39 +402,63 @@ function ModelPreview({ file, analysis, scaledSizeCm, quoteScale = 1 }) {
   }, [file]);
 
   const extension = useMemo(() => file?.name.split(".").pop()?.toLowerCase() ?? "", [file]);
+  const showBoundingBox = extension === "step" || extension === "stp";
+  const safeAxisScaleFactors = axisScaleFactors?.length ? axisScaleFactors : [1, 1, 1];
+  const meshBaseScale = (analysis?.unitScaleToCm ?? 0.1) * SCENE_UNITS_PER_CM;
+  const meshScale = safeAxisScaleFactors.map((value) => meshBaseScale * value);
+  const objectRotation = [
+    ((Number(modelRotation.x) || 0) * Math.PI) / 180,
+    ((Number(modelRotation.y) || 0) * Math.PI) / 180,
+    ((Number(modelRotation.z) || 0) * Math.PI) / 180,
+  ];
+  const previewSizeCm = modelSizeCm?.length ? modelSizeCm : analysis?.sizeCm;
+  const rotatedBoundsInfo = useMemo(
+    () => getRotatedBoundsInfoCm(previewSizeCm ?? [], modelRotation),
+    [modelRotation, previewSizeCm]
+  );
+  const objectFloorOffsetScene = -rotatedBoundsInfo.min[1] * SCENE_UNITS_PER_CM;
+  const objectCenterYScene =
+    objectFloorOffsetScene +
+    ((rotatedBoundsInfo.min[1] + rotatedBoundsInfo.max[1]) / 2) * SCENE_UNITS_PER_CM;
+  const sceneExtent = Math.max(
+    BUILD_VOLUME_SCENE_SIZE,
+    ...((rotatedSizeCm?.length ? rotatedSizeCm : BUILD_VOLUME_CM).map(
+      (value) => value * SCENE_UNITS_PER_CM
+    ) ?? [])
+  );
+  const cameraTargetY = objectCenterYScene;
 
   if (!file || !analysis) {
     return null;
   }
 
-  const showBoundingBox = extension === "step" || extension === "stp";
-  const bounds = scaledSizeCm?.length ? scaledSizeCm : analysis.sizeCm;
-  const viewerScale = (analysis.previewScale ?? 0.1) * quoteScale;
-
   return (
     <div className="flex flex-col gap-3">
-      <div className="h-72 w-full overflow-hidden rounded-lg border border-sky-100 bg-slate-900/95 shadow-[0_0_26px_rgba(0,149,255,0.18)] md:h-80">
+      <div className="mx-auto aspect-square w-full max-w-[28rem] overflow-hidden rounded-lg border border-sky-100 bg-sky-100 shadow-[0_0_26px_rgba(0,149,255,0.18)]">
         <Canvas camera={{ position: [0, 0, 12], fov: 60 }} shadows>
-          <color attach="background" args={["#0f172a"]} />
+          <color attach="background" args={[CANVAS_BACKGROUND_COLOR]} />
           <ambientLight intensity={0.6} />
           <directionalLight intensity={0.9} position={[12, 16, 10]} castShadow />
+          <BuildVolumeCuboid fitsBuildVolume={fitsBuildVolume} />
           <Suspense fallback={null}>
-            <FitCamera bounds={bounds} />
-            {showBoundingBox ? (
-              <StepPreview sizeCm={bounds} />
-            ) : extension === "obj" ? (
-              objectUrl ? (
-                <ObjModel url={objectUrl} viewerScale={viewerScale} />
-              ) : null
-            ) : extension === "gltf" || extension === "glb" ? (
-              objectUrl ? (
-                <GltfModel url={objectUrl} viewerScale={viewerScale} />
-              ) : null
-            ) : objectUrl ? (
-              <StlModel url={objectUrl} viewerScale={viewerScale} />
-            ) : null}
+            <FitCamera sceneExtent={sceneExtent} targetY={cameraTargetY} />
+            <group position={[0, objectFloorOffsetScene, 0]} rotation={objectRotation}>
+              {showBoundingBox ? (
+                <StepPreview sizeCm={modelSizeCm ?? analysis.sizeCm} modelColor={modelColor} />
+              ) : extension === "obj" ? (
+                objectUrl ? (
+                  <ObjModel url={objectUrl} viewerScale={meshScale} modelColor={modelColor} />
+                ) : null
+              ) : extension === "gltf" || extension === "glb" ? (
+                objectUrl ? (
+                  <GltfModel url={objectUrl} viewerScale={meshScale} modelColor={modelColor} />
+                ) : null
+              ) : objectUrl ? (
+                <StlModel url={objectUrl} viewerScale={meshScale} modelColor={modelColor} />
+              ) : null}
+            </group>
           </Suspense>
-          <CameraControls />
+          <CameraControls targetY={cameraTargetY} />
         </Canvas>
       </div>
       {showBoundingBox ? (
@@ -193,6 +480,11 @@ const UNIT_PRESETS = [
   { value: "m", label: "Méter (m)", toMillimeter: 1000 },
   { value: "inch", label: "Hüvelyk (inch)", toMillimeter: 25.4 },
 ];
+
+const INFILL_PERCENT_OPTIONS = Array.from({ length: 21 }, (_item, index) => index * 5);
+const DEFAULT_INFILL_PERCENT = 20;
+const DEFAULT_PRINT_PROFILE_KEY = PRINT_PROFILE_ORDER[0].key;
+const MAX_PRINT_QUANTITY = 999;
 
 function formatNumber(value, fractionDigits = 2) {
   if (!Number.isFinite(value)) {
@@ -222,11 +514,17 @@ function formatMass(value) {
   return `${formatNumber(value, 1)} g`;
 }
 
-function formatPricePerGram(value) {
-  if (!Number.isFinite(value)) {
+function formatPrintTime(hours) {
+  if (!Number.isFinite(hours)) {
     return "-";
   }
-  return `${formatNumber(value, 0)} Ft/g`;
+  const totalMinutes = Math.max(1, Math.round(hours * 60));
+  const hourValue = Math.floor(totalMinutes / 60);
+  const minuteValue = totalMinutes % 60;
+  if (!hourValue) {
+    return `${minuteValue} perc`;
+  }
+  return minuteValue ? `${hourValue} óra ${minuteValue} perc` : `${hourValue} óra`;
 }
 
 function formatDimensionArray(values) {
@@ -244,12 +542,13 @@ function formatPercentage(value) {
 }
 
 function PremadeModelCatalog({ onBack }) {
+  const [selectedModel, setSelectedModel] = useState(null);
   const premadeModelsQuery = useQuery({
     queryKey: ["premade-models"],
     queryFn: () => api("/premade-models"),
     retry: false,
   });
-  const models = premadeModelsQuery.data?.items ?? [];
+  const models = buildPremadeModelList(premadeModelsQuery.data?.items ?? []);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -274,12 +573,12 @@ function PremadeModelCatalog({ onBack }) {
       ) : null}
 
       {premadeModelsQuery.isError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {premadeModelsQuery.error.message}
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+          Az admin modellek nem érhetők el, ezért az alapértelmezett modellek láthatók.
         </p>
       ) : null}
 
-      {!premadeModelsQuery.isLoading && !premadeModelsQuery.isError && models.length === 0 ? (
+      {!premadeModelsQuery.isLoading && models.length === 0 ? (
         <p className="neon-panel rounded-lg p-5 text-sm text-slate-500">
           Jelenleg nincs feltöltött előre elkészített modell.
         </p>
@@ -287,35 +586,18 @@ function PremadeModelCatalog({ onBack }) {
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {models.map((model) => (
-          <article key={model.id} className="neon-card flex h-full flex-col overflow-hidden">
-            <img
-              src={model.image?.url}
-              alt={model.title}
-              className="h-56 w-full object-cover"
-            />
-            <div className="flex flex-1 flex-col p-5">
-              <h3 className="text-xl font-semibold text-sky-100">{model.title}</h3>
-              <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-400">
-                {model.description}
-              </p>
-              <div className="mt-5 grid gap-3 border-t border-slate-700 pt-4 text-sm text-slate-300 sm:grid-cols-2">
-                <p>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Ár
-                  </span>
-                  <span className="font-semibold text-sky-100">{formatCurrency(model.priceHuf)}</span>
-                </p>
-                <p>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Méret
-                  </span>
-                  <span className="font-semibold text-sky-100">{model.size}</span>
-                </p>
-              </div>
-            </div>
-          </article>
+          <PremadeModelCard
+            key={model.id}
+            model={model}
+            isSelected={selectedModel?.id === model.id}
+            onSelect={setSelectedModel}
+          />
         ))}
       </div>
+
+      {selectedModel ? (
+        <PremadeModelRequestForm model={selectedModel} onBack={() => setSelectedModel(null)} />
+      ) : null}
     </div>
   );
 }
@@ -363,6 +645,12 @@ function QuoteCalculator() {
   const [unitOverride, setUnitOverride] = useState("auto");
   const [selectedFilament, setSelectedFilament] = useState(FILAMENT_ORDER[0].key);
   const [selectedColorHex, setSelectedColorHex] = useState("");
+  const [selectedPrintProfileKey, setSelectedPrintProfileKey] = useState(DEFAULT_PRINT_PROFILE_KEY);
+  const [selectedInfillPercent, setSelectedInfillPercent] = useState(DEFAULT_INFILL_PERCENT);
+  const [printQuantity, setPrintQuantity] = useState(1);
+  const [modelScalePercent, setModelScalePercent] = useState(100);
+  const [modelSizeCm, setModelSizeCm] = useState(null);
+  const [modelRotation, setModelRotation] = useState(DEFAULT_MODEL_ROTATION);
   const [status, setStatus] = useState({ type: "info", message: "" });
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -432,17 +720,68 @@ function QuoteCalculator() {
     }
   }, [colorOptions, selectedColorHex]);
 
-  const quote = useMemo(() => {
-    if (!analysis || !selectedMaterial) {
+  const modelScale = Math.max(0.05, modelScalePercent / 100);
+  const activeModelSizeCm = useMemo(() => {
+    if (modelSizeCm?.length) {
+      return modelSizeCm;
+    }
+    if (!analysis?.sizeCm?.length) {
       return null;
     }
-    return calculateQuote({
-      analysis,
+    return analysis.sizeCm.map((value) => value * modelScale);
+  }, [analysis, modelScale, modelSizeCm]);
+  const axisScaleFactors = useMemo(
+    () => getAxisScaleFactors(analysis?.sizeCm ?? [], activeModelSizeCm ?? []),
+    [activeModelSizeCm, analysis]
+  );
+  const resizedAnalysis = useMemo(
+    () => resizeAnalysisForModel(analysis, activeModelSizeCm),
+    [activeModelSizeCm, analysis]
+  );
+  const rotatedModelSizeCm = useMemo(
+    () => getRotatedBoundsCm(activeModelSizeCm ?? [], modelRotation),
+    [activeModelSizeCm, modelRotation]
+  );
+  const fitsBuildVolume = useMemo(
+    () => Boolean(activeModelSizeCm?.length) && getFitsBuildVolume(rotatedModelSizeCm),
+    [activeModelSizeCm, rotatedModelSizeCm]
+  );
+
+  const quote = useMemo(() => {
+    if (!resizedAnalysis || !selectedMaterial) {
+      return null;
+    }
+    const calculatedQuote = calculateQuote({
+      analysis: resizedAnalysis,
       filamentKey: selectedFilament,
       filament: selectedMaterial,
       calculatorSettings: calculatorSettingsQuery.data?.item ?? DEFAULT_CALCULATOR_SETTINGS,
+      infillPercent: selectedInfillPercent,
+      printProfileKey: selectedPrintProfileKey,
+      quantity: printQuantity,
+      scale: 1,
     });
-  }, [analysis, calculatorSettingsQuery.data, selectedFilament, selectedMaterial]);
+    return {
+      ...calculatedQuote,
+      axisScaleFactors,
+      buildVolumeCm: BUILD_VOLUME_CM,
+      fitsPrinter: fitsBuildVolume,
+      modelRotationDegrees: modelRotation,
+      rotatedSizeCm: rotatedModelSizeCm,
+    };
+  }, [
+    axisScaleFactors,
+    calculatorSettingsQuery.data,
+    fitsBuildVolume,
+    modelRotation,
+    printQuantity,
+    resizedAnalysis,
+    rotatedModelSizeCm,
+    selectedFilament,
+    selectedInfillPercent,
+    selectedMaterial,
+    selectedPrintProfileKey,
+  ]);
 
   const scaledSizeCm = useMemo(() => {
     if (quote?.scaledSizeCm?.length) {
@@ -460,7 +799,7 @@ function QuoteCalculator() {
   const scaledDimensionsText = formatDimensionArray(scaledSizeCm);
   const hasWarnings = Boolean(analysis?.warnings?.length);
   const canSubmit = Boolean(
-    file && analysis && quote && !loading && !sending && (!colorOptions.length || selectedColor),
+    file && analysis && quote && !loading && !sending && (!colorOptions.length || selectedColor)
   );
 
   function clearFileInput() {
@@ -478,6 +817,7 @@ function QuoteCalculator() {
     setUnitOverride("auto");
     if (!selectedFile) {
       setFile(null);
+      setModelSizeCm(null);
       clearFileInput();
       setStatus({ type: "info", message: "" });
       return;
@@ -488,6 +828,7 @@ function QuoteCalculator() {
         message: "Legfeljebb 50 MB méretű fájl tölthető fel.",
       });
       setFile(null);
+      setModelSizeCm(null);
       clearFileInput();
       return;
     }
@@ -501,6 +842,9 @@ function QuoteCalculator() {
       setFile(selectedFile);
       setBaseAnalysis(result);
       setAnalysis(result);
+      setModelScalePercent(getInitialScalePercent(result));
+      setModelSizeCm(getInitialSizeCm(result));
+      setModelRotation(getBestPrintableRotation(result.sizeCm));
       const messageParts = ["A fájl sikeresen ellenőrizve."];
       const recommendedScale = result.autoScale?.recommendedScale;
       if (Number.isFinite(recommendedScale) && recommendedScale < 1) {
@@ -526,6 +870,7 @@ function QuoteCalculator() {
       setFile(null);
       setAnalysis(null);
       setBaseAnalysis(null);
+      setModelSizeCm(null);
       clearFileInput();
       setStatus({
         type: "error",
@@ -552,6 +897,9 @@ function QuoteCalculator() {
     if (value === "auto") {
       if (baseAnalysis) {
         setAnalysis(baseAnalysis);
+        setModelScalePercent(getInitialScalePercent(baseAnalysis));
+        setModelSizeCm(getInitialSizeCm(baseAnalysis));
+        setModelRotation(getBestPrintableRotation(baseAnalysis.sizeCm));
         const messageParts = ["Automatikus egységfelismerés alkalmazva."];
         if (baseAnalysis.detectedUnit) {
           messageParts.push(`Feltételezett egység: ${baseAnalysis.detectedUnit}.`);
@@ -584,6 +932,9 @@ function QuoteCalculator() {
         return;
       }
       setAnalysis(result);
+      setModelScalePercent(getInitialScalePercent(result));
+      setModelSizeCm(getInitialSizeCm(result));
+      setModelRotation(getBestPrintableRotation(result.sizeCm));
       const messageParts = [`${preset.label} feltételezésével újraértékeltük a modellt.`];
       if (result.autoScale?.recommendedScale < 1) {
         messageParts.push(
@@ -619,6 +970,32 @@ function QuoteCalculator() {
   function handleInputChange(event) {
     const { name, value } = event.target;
     setFormData((previous) => ({ ...previous, [name]: value }));
+  }
+
+  function handleUniformScaleChange(value) {
+    const nextScalePercent = clampNumber(value, 5, 200, modelScalePercent);
+    setModelScalePercent(nextScalePercent);
+    if (analysis?.sizeCm?.length) {
+      const nextScale = nextScalePercent / 100;
+      setModelSizeCm(analysis.sizeCm.map((dimension) => dimension * nextScale));
+    }
+  }
+
+  function handleModelSizeChange(axisIndex, value) {
+    const currentSize = activeModelSizeCm?.length
+      ? activeModelSizeCm
+      : analysis?.sizeCm?.length
+        ? analysis.sizeCm
+        : [1, 1, 1];
+    const nextSize = currentSize.map((dimension, index) =>
+      index === axisIndex ? clampNumber(value, 0.1, 200, dimension) : dimension
+    );
+    setModelSizeCm(nextSize);
+    setModelScalePercent(getAverageScalePercent(analysis?.sizeCm ?? [], nextSize));
+  }
+
+  function handlePrintQuantityChange(value) {
+    setPrintQuantity(Math.trunc(clampNumber(value, 1, MAX_PRINT_QUANTITY, printQuantity)));
   }
 
   async function handleSubmit(event) {
@@ -686,6 +1063,12 @@ function QuoteCalculator() {
       setFormData({ name: "", email: "", address: "", message: "" });
       setSelectedFilament(FILAMENT_ORDER[0].key);
       setSelectedColorHex("");
+      setSelectedPrintProfileKey(DEFAULT_PRINT_PROFILE_KEY);
+      setSelectedInfillPercent(DEFAULT_INFILL_PERCENT);
+      setPrintQuantity(1);
+      setModelScalePercent(100);
+      setModelSizeCm(null);
+      setModelRotation(DEFAULT_MODEL_ROTATION);
       setUnitOverride("auto");
       setFile(null);
       setAnalysis(null);
@@ -750,15 +1133,129 @@ function QuoteCalculator() {
             <ModelPreview
               file={file}
               analysis={analysis}
-              scaledSizeCm={scaledSizeCm}
-              quoteScale={quote?.scale ?? 1}
+              modelSizeCm={activeModelSizeCm}
+              axisScaleFactors={axisScaleFactors}
+              modelRotation={modelRotation}
+              rotatedSizeCm={quote?.rotatedSizeCm ?? rotatedModelSizeCm}
+              fitsBuildVolume={quote?.fitsPrinter ?? fitsBuildVolume}
+              modelColor={selectedColor?.hex ?? DEFAULT_MODEL_COLOR}
             />
 
+            <div className="rounded-lg border border-sky-100 bg-sky-50/60 p-4 shadow-sm">
+              <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                <div>
+                  <h3 className="text-lg font-semibold text-sky-900">Nyomtatási tér</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    A kocka a legnagyobb nyomtatónk {formatDimensionArray(BUILD_VOLUME_CM)}-es
+                    munkaterét mutatja.
+                  </p>
+                </div>
+                <span
+                  className={[
+                    "inline-flex rounded-md px-3 py-2 text-sm font-bold uppercase tracking-wide",
+                    fitsBuildVolume
+                      ? "bg-emerald-400/20 text-emerald-200 ring-1 ring-emerald-300/50"
+                      : "bg-red-500/20 text-red-200 ring-1 ring-red-300/50",
+                  ].join(" ")}
+                >
+                  {fitsBuildVolume ? "Belefér" : "Nem fér bele"}
+                </span>
+              </div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                <label className="flex flex-col text-sm font-semibold text-sky-900">
+                  Méretarány: {modelScalePercent}%
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_6rem] sm:items-center">
+                    <input
+                      type="range"
+                      min="5"
+                      max="200"
+                      step="1"
+                      value={modelScalePercent}
+                      onChange={(event) => handleUniformScaleChange(event.target.value)}
+                      disabled={loading || sending}
+                    />
+                    <input
+                      type="number"
+                      min="5"
+                      max="200"
+                      step="1"
+                      value={modelScalePercent}
+                      onChange={(event) => handleUniformScaleChange(event.target.value)}
+                      disabled={loading || sending}
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
+                      aria-label="Méretarány százalékban"
+                    />
+                  </div>
+                  <span className="mt-1 text-xs font-normal text-slate-500">
+                    Húzd kisebbre vagy nagyobbra a modellt a nyomtatási térben.
+                  </span>
+                </label>
+
+                <div>
+                  <p className="text-sm font-semibold text-sky-900">Méret tengelyenként</p>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                    {SIZE_AXIS_LABELS.map((item, index) => {
+                      const label = item[1];
+                      return (
+                        <label
+                          key={label}
+                          className="flex flex-col text-xs font-semibold text-slate-600"
+                        >
+                          {label} méret (cm)
+                          <input
+                            type="number"
+                            min="0.1"
+                            max="200"
+                            step="0.1"
+                            value={(Number(activeModelSizeCm?.[index]) || 0).toFixed(1)}
+                            onChange={(event) => handleModelSizeChange(index, event.target.value)}
+                            disabled={loading || sending}
+                            className="mt-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
+                            aria-label={`${label} tengely mérete centiméterben`}
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-sky-900">Forgatás</p>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                    {ROTATION_AXIS_LABELS.map(([axis, label]) => (
+                      <label
+                        key={axis}
+                        className="flex flex-col text-xs font-semibold text-slate-600"
+                      >
+                        {label}: {modelRotation[axis]}°
+                        <input
+                          type="number"
+                          min="-180"
+                          max="180"
+                          step="1"
+                          value={modelRotation[axis]}
+                          onChange={(event) =>
+                            setModelRotation((current) => ({
+                              ...current,
+                              [axis]: clampNumber(event.target.value, -180, 180, current[axis]),
+                            }))
+                          }
+                          disabled={loading || sending}
+                          className="mt-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
+                          aria-label={`${label} tengely forgatás fokban`}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div>
-              <h3 className="text-lg font-semibold text-sky-900">Filament kiválasztása</h3>
+              <h3 className="text-lg font-semibold text-sky-900">Anyag kiválasztása</h3>
               <p className="mt-1 text-sm text-slate-600">
-                Válaszd ki a felhasználási célnak megfelelő alapanyagot - a költségbecslés azonnal
-                frissül.
+                Válaszd ki a felhasználási célnak megfelelő alapanyagot és színt.
               </p>
               {filamentsQuery.isError ? (
                 <p className="mt-2 text-xs text-amber-700">
@@ -797,11 +1294,6 @@ function QuoteCalculator() {
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-slate-600">{material.description}</p>
-                      {Number.isFinite(material.priceHufPerGram) ? (
-                        <span className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">
-                          {formatPricePerGram(material.priceHufPerGram)}
-                        </span>
-                      ) : null}
                       {material.colors?.length ? (
                         <span className="mt-3 flex flex-wrap gap-1.5" aria-hidden="true">
                           {material.colors.slice(0, 8).map((color) => (
@@ -847,31 +1339,116 @@ function QuoteCalculator() {
                   </div>
                 </div>
               ) : null}
+
+              <div className="mt-6 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+                <fieldset>
+                  <legend className="text-sm font-semibold text-sky-900">
+                    Nyomtatási beállítás
+                  </legend>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                    {PRINT_PROFILE_ORDER.map((profile) => {
+                      const isActive = selectedPrintProfileKey === profile.key;
+                      return (
+                        <button
+                          key={profile.key}
+                          type="button"
+                          onClick={() => setSelectedPrintProfileKey(profile.key)}
+                          className={[
+                            "flex min-h-28 flex-col rounded-lg border p-3 text-left transition",
+                            isActive
+                              ? "border-sky-400 bg-sky-100/70 shadow"
+                              : "border-slate-200 bg-white/70 hover:border-sky-300 hover:bg-sky-50/60",
+                          ].join(" ")}
+                        >
+                          <span className="text-sm font-semibold text-sky-900">
+                            {profile.label}
+                          </span>
+                          <span className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            {formatNumber(profile.layerHeightMm, 1)} mm réteg
+                          </span>
+                          <span className="mt-2 text-xs leading-relaxed text-slate-600">
+                            {profile.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                  <label className="flex flex-col text-sm font-semibold text-sky-900">
+                    Kitöltés
+                    <select
+                      value={selectedInfillPercent}
+                      onChange={(event) => setSelectedInfillPercent(Number(event.target.value))}
+                      disabled={loading || sending}
+                      className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-medium text-slate-800 shadow-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    >
+                      {INFILL_PERCENT_OPTIONS.map((value) => (
+                        <option key={value} value={value}>
+                          {value}%
+                        </option>
+                      ))}
+                    </select>
+                    <span className="mt-2 text-xs font-normal leading-relaxed text-slate-500">
+                      A legtöbb dísz- és prototípus modellhez a 15-25% körüli érték elég.
+                    </span>
+                  </label>
+
+                  <label className="flex flex-col text-sm font-semibold text-sky-900">
+                    Darabszám
+                    <input
+                      type="number"
+                      min="1"
+                      max={MAX_PRINT_QUANTITY}
+                      step="1"
+                      value={printQuantity}
+                      onChange={(event) => handlePrintQuantityChange(event.target.value)}
+                      disabled={loading || sending}
+                      className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-medium text-slate-800 shadow-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                      aria-label="Nyomtatandó darabszám"
+                    />
+                    <span className="mt-2 text-xs font-normal leading-relaxed text-slate-500">
+                      Ugyanebből a modellből ennyi darabot kérsz.
+                    </span>
+                  </label>
+                </div>
+              </div>
             </div>
 
             {quote ? (
               <div className="space-y-4">
-                <div className="grid gap-4 lg:grid-cols-3">
+                <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                   <div className="rounded-lg border border-sky-100 bg-sky-50/60 p-4 shadow-sm">
                     <h3 className="text-lg font-semibold text-sky-900">Modell adatai</h3>
-                    <dl className="mt-3 space-y-2 text-sm text-slate-700">
+                    <dl className="mt-3 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
                       <div>
-                        <dt className="font-medium text-slate-600">Eredeti méret</dt>
+                        <dt className="font-medium text-slate-600">Modell méretei</dt>
                         <dd>{rawDimensionsText}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium text-slate-600">Skálázott méret</dt>
-                        <dd>{scaledDimensionsText}</dd>
                       </div>
                       {quote.scale !== 1 ? (
                         <div>
-                          <dt className="font-medium text-slate-600">Alkalmazott méretarány</dt>
-                          <dd>{formatPercentage(quote.scale * 100)}</dd>
+                          <dt className="font-medium text-slate-600">Nyomtatási méret</dt>
+                          <dd>
+                            {scaledDimensionsText} ({formatPercentage(quote.scale * 100)})
+                          </dd>
                         </div>
                       ) : null}
                       <div>
-                        <dt className="font-medium text-slate-600">Térfogat</dt>
+                        <dt className="font-medium text-slate-600">Forgatott befoglaló méret</dt>
+                        <dd>{formatDimensionArray(quote.rotatedSizeCm)}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-slate-600">Darabszám</dt>
+                        <dd>{quote.quantity} db</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-slate-600">Box térfogat / db</dt>
                         <dd>{formatNumber(quote.scaledVolumeCm3, 2)} cm3</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-slate-600">Anyag térfogata összesen</dt>
+                        <dd>{formatNumber(quote.effectiveVolumeCm3, 2)} cm3</dd>
                       </div>
                       {Number.isFinite(quote.scaledSurfaceAreaCm2) ? (
                         <div>
@@ -880,8 +1457,12 @@ function QuoteCalculator() {
                         </div>
                       ) : null}
                       <div>
-                        <dt className="font-medium text-slate-600">Becsült tömeg</dt>
+                        <dt className="font-medium text-slate-600">Becsült tömeg összesen</dt>
                         <dd>{formatMass(quote.massGrams)}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-slate-600">Nyomtatási idő összesen</dt>
+                        <dd>{formatPrintTime(quote.hours)}</dd>
                       </div>
                       <div>
                         <dt className="font-medium text-slate-600">Fájl egysége</dt>
@@ -918,10 +1499,28 @@ function QuoteCalculator() {
                   </div>
 
                   <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm">
-                    <h3 className="text-lg font-semibold text-emerald-800">Költségbecslés</h3>
-                    <p className="mt-1 text-sm text-emerald-700">
-                      {selectedMaterial.label} alapanyag - {selectedMaterial.temperature}
-                    </p>
+                    <h3 className="text-lg font-semibold text-emerald-800">Összesítés</h3>
+                    <dl className="mt-3 space-y-2 text-sm text-emerald-800">
+                      <div>
+                        <dt className="font-medium text-emerald-700">Anyag</dt>
+                        <dd>{selectedMaterial.label}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-emerald-700">Rétegvastagság</dt>
+                        <dd>
+                          {quote.printProfile.label},{" "}
+                          {formatNumber(quote.printProfile.layerHeightMm, 1)} mm
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-emerald-700">Darabszám</dt>
+                        <dd>{quote.quantity} db</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-emerald-700">Kitöltés</dt>
+                        <dd>{formatPercentage(quote.infillPercent ?? selectedInfillPercent)}</dd>
+                      </div>
+                    </dl>
                     {selectedColor ? (
                       <p className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">
                         <span
@@ -932,76 +1531,25 @@ function QuoteCalculator() {
                         {selectedColor.name}
                       </p>
                     ) : null}
-                    {Number.isFinite(quote.materialPricePerGram) ? (
-                      <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
-                        {formatPricePerGram(quote.materialPricePerGram)}
+                    <p className="mt-5 text-sm font-medium text-emerald-700">Becsült ár</p>
+                    <p className="mt-1 text-3xl font-extrabold text-emerald-900">
+                      {formatCurrency(quote.total)}
+                    </p>
+                    {quote.quantity > 1 ? (
+                      <p className="mt-2 text-xs leading-relaxed text-emerald-700">
+                        {quote.quantity} db-ra számolva, egyszeri szolgáltatási díjjal.
                       </p>
                     ) : null}
-                    <ul className="mt-3 space-y-1 text-sm text-emerald-800">
-                      <li>Becsült nyomtatási idő: {formatNumber(quote.hours, 2)} óra</li>
-                      <li>Anyagköltség: {formatCurrency(quote.materialCost)}</li>
-                      <li>Gépidő költség: {formatCurrency(quote.machineCost)}</li>
-                      <li>Felület utómunka: {formatCurrency(quote.finishingCost)}</li>
-                      <li>Szolgáltatási alapdíj: {formatCurrency(quote.serviceFee)}</li>
-                      <li className="pt-2 text-base font-semibold text-emerald-900">
-                        Összesen: {formatCurrency(quote.total)}
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-white/80 p-4 shadow-sm">
-                    <h3 className="text-lg font-semibold text-sky-900">Ellenőrzési eredmények</h3>
-                    <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                      <li>
-                        <span className="font-medium text-slate-600">Zártság:</span>{" "}
-                        {analysis.manifold?.isWatertight === false
-                          ? "Nem zárt felület"
-                          : analysis.manifold?.isWatertight === true
-                            ? "Rendben"
-                            : "Nem áll rendelkezésre adat"}
-                      </li>
-                      {Number.isFinite(analysis.manifold?.nonManifoldEdges) ? (
-                        <li>
-                          <span className="font-medium text-slate-600">Nem-manifold élek:</span>{" "}
-                          {analysis.manifold.nonManifoldEdges}
-                        </li>
-                      ) : null}
-                      {analysis.intersections ? (
-                        <>
-                          <li>
-                            <span className="font-medium text-slate-600">Önátfedések:</span>{" "}
-                            {analysis.intersections.selfIntersections}
-                          </li>
-                          <li>
-                            <span className="font-medium text-slate-600">Vékony fal minták:</span>{" "}
-                            {formatPercentage(analysis.intersections.thinWallPercentage)} (min.
-                            vastagság:{" "}
-                            {Number.isFinite(analysis.intersections.minWallThicknessMm)
-                              ? `${formatNumber(analysis.intersections.minWallThicknessMm, 2)} mm`
-                              : "n.a."}
-                            )
-                          </li>
-                        </>
-                      ) : null}
-                      {analysis.overhangs ? (
-                        <li>
-                          <span className="font-medium text-slate-600">
-                            Támaszt igénylő felület:
-                          </span>{" "}
-                          {formatPercentage(analysis.overhangs.percentage)}
-                        </li>
-                      ) : null}
-                      <li>
-                        <span className="font-medium text-slate-600">Normál orientáció:</span>{" "}
-                        {analysis.normalsFlipped ? "Javítva" : "Rendben"}
-                      </li>
-                    </ul>
+                    <p className="mt-2 text-xs leading-relaxed text-emerald-700">
+                      A végleges ajánlatot a feltöltött modell gyárthatósági ellenőrzése után
+                      erősítjük meg.
+                    </p>
                   </div>
                 </div>
 
                 {hasWarnings ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-800">
-                    <h4 className="text-base font-semibold">Figyelmeztetések</h4>
+                    <h4 className="text-base font-semibold">Gyártási megjegyzések</h4>
                     <ul className="mt-2 list-disc space-y-1 pl-5">
                       {analysis.warnings.map((warning, index) => (
                         <li key={index}>{warning}</li>
@@ -1031,7 +1579,10 @@ function QuoteCalculator() {
         ) : null}
       </div>
 
-      <form onSubmit={handleSubmit} className="neon-panel rounded-lg p-5 shadow-lg backdrop-blur md:p-6">
+      <form
+        onSubmit={handleSubmit}
+        className="neon-panel rounded-lg p-5 shadow-lg backdrop-blur md:p-6"
+      >
         <h2 className="text-2xl font-semibold text-sky-900">2. Kapcsolati adatok megadása</h2>
         <p className="mt-2 text-sm text-slate-600">
           Add meg az elérhetőségedet, hogy kollégánk felvehessen veled a kapcsolatot.
@@ -1139,5 +1690,3 @@ export default function Ajanlatkeres() {
     </div>
   );
 }
-
-

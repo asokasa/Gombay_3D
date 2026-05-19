@@ -134,6 +134,22 @@ h6,
     0 0 36px rgba(255, 45, 85, 0.1);
 }
 
+.hero-logo-glow {
+  animation: hero-logo-pulse 3.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 32px rgba(0, 149, 255, 0.42));
+}
+
+@keyframes hero-logo-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 26px rgba(0, 149, 255, 0.32));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 42px rgba(122, 213, 255, 0.56));
+  }
+}
+
 .neon-muted {
   color: var(--muted);
 }

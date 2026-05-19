@@ -28,6 +28,39 @@ export const DEFAULT_CALCULATOR_SETTINGS = {
   minimumPrintHours: 0.4,
 };
 
+export const PRINT_PROFILES = {
+  NORMAL: {
+    key: "NORMAL",
+    label: "Normál",
+    description: "Kiegyensúlyozott részletesség és gyártási idő.",
+    layerHeightMm: 0.2,
+    printSpeedMultiplier: 1,
+    machineCostMultiplier: 1,
+  },
+  DETAIL: {
+    key: "DETAIL",
+    label: "Részletes",
+    description: "Finomabb rétegek, lassabb nyomtatással.",
+    layerHeightMm: 0.1,
+    printSpeedMultiplier: 0.6,
+    machineCostMultiplier: 1.15,
+  },
+  DRAFT: {
+    key: "DRAFT",
+    label: "Gyors",
+    description: "Vastagabb rétegek gyorsabb, egyszerűbb darabokhoz.",
+    layerHeightMm: 0.3,
+    printSpeedMultiplier: 1.3,
+    machineCostMultiplier: 0.9,
+  },
+};
+
+export const PRINT_PROFILE_ORDER = [
+  PRINT_PROFILES.NORMAL,
+  PRINT_PROFILES.DETAIL,
+  PRINT_PROFILES.DRAFT,
+];
+
 export const FILAMENTS = {
   PLA: {
     key: "PLA",
@@ -709,9 +742,15 @@ export function calculateQuote({
   filamentKey,
   filament: filamentOverride,
   calculatorSettings,
+  infillPercent,
+  printProfileKey,
+  printProfile: printProfileOverride,
+  quantity,
   scale,
 }) {
   const filament = filamentOverride ?? FILAMENTS[filamentKey] ?? FILAMENTS.PLA;
+  const printProfile =
+    printProfileOverride ?? PRINT_PROFILES[printProfileKey] ?? PRINT_PROFILES.NORMAL;
   const settings = {
     ...DEFAULT_CALCULATOR_SETTINGS,
     ...(calculatorSettings ?? {}),
@@ -733,37 +772,65 @@ export function calculateQuote({
   const machineRateHufPerHour = Math.max(0, Number(settings.machineRateHufPerHour) || 0);
   const fallbackMaterialCostHufPerCm3 = Math.max(
     0,
-    Number(settings.fallbackMaterialCostHufPerCm3) || 0,
+    Number(settings.fallbackMaterialCostHufPerCm3) || 0
   );
   const finishingCostHufPerCm2 = Math.max(0, Number(settings.finishingCostHufPerCm2) || 0);
-  const printSpeedCm3PerHour = Math.max(0.01, Number(settings.printSpeedCm3PerHour) || 0);
-  const infillFactor = Math.min(1, Math.max(0, Number(settings.infillFactor) || 0));
+  const printSpeedMultiplier = Math.max(0.01, Number(printProfile.printSpeedMultiplier) || 1);
+  const machineCostMultiplier = Math.max(0, Number(printProfile.machineCostMultiplier) || 1);
+  const printSpeedCm3PerHour =
+    Math.max(0.01, Number(settings.printSpeedCm3PerHour) || 0) * printSpeedMultiplier;
+  const selectedInfillPercent = Number.isFinite(Number(infillPercent))
+    ? Math.min(100, Math.max(0, Number(infillPercent)))
+    : null;
+  const infillFactor =
+    selectedInfillPercent === null
+      ? Math.min(1, Math.max(0, Number(settings.infillFactor) || 0))
+      : selectedInfillPercent / 100;
+  const shellVolumeFactor = selectedInfillPercent === null ? 0 : 0.08;
+  const effectiveInfillFactor = Math.min(
+    1,
+    shellVolumeFactor + (1 - shellVolumeFactor) * infillFactor
+  );
   const minimumPrintHours = Math.max(0, Number(settings.minimumPrintHours) || 0);
+  const selectedQuantity = Number.isFinite(Number(quantity))
+    ? Math.min(999, Math.max(1, Math.trunc(Number(quantity))))
+    : 1;
 
-  const effectiveVolumeCm3 = scaledVolumeCm3 * infillFactor;
-  const hours = Math.max(minimumPrintHours, effectiveVolumeCm3 / printSpeedCm3PerHour);
+  const singleEffectiveVolumeCm3 = scaledVolumeCm3 * effectiveInfillFactor;
+  const singleHours = Math.max(minimumPrintHours, singleEffectiveVolumeCm3 / printSpeedCm3PerHour);
+  const effectiveVolumeCm3 = singleEffectiveVolumeCm3 * selectedQuantity;
+  const hours = singleHours * selectedQuantity;
 
   const density = filament.density ?? 1.24;
-  const massGrams = effectiveVolumeCm3 * density;
+  const singleMassGrams = singleEffectiveVolumeCm3 * density;
+  const massGrams = singleMassGrams * selectedQuantity;
   const pricePerGram = filament.priceHufPerGram;
 
   const fallbackMaterialCost =
-    effectiveVolumeCm3 * fallbackMaterialCostHufPerCm3 * (filament.materialMultiplier ?? 1);
-  const materialCost = Number.isFinite(pricePerGram)
-    ? massGrams * pricePerGram
+    singleEffectiveVolumeCm3 * fallbackMaterialCostHufPerCm3 * (filament.materialMultiplier ?? 1);
+  const singleMaterialCost = Number.isFinite(pricePerGram)
+    ? singleMassGrams * pricePerGram
     : fallbackMaterialCost;
-  const machineCost = hours * machineRateHufPerHour * filament.machineMultiplier;
-  const finishingCost = Number.isFinite(scaledSurfaceAreaCm2)
+  const materialCost = singleMaterialCost * selectedQuantity;
+  const singleMachineCost =
+    singleHours * machineRateHufPerHour * (filament.machineMultiplier ?? 1) * machineCostMultiplier;
+  const machineCost = singleMachineCost * selectedQuantity;
+  const singleFinishingCost = Number.isFinite(scaledSurfaceAreaCm2)
     ? scaledSurfaceAreaCm2 * finishingCostHufPerCm2
     : 0;
-  const total = serviceFeeHuf + materialCost + machineCost + finishingCost;
+  const finishingCost = singleFinishingCost * selectedQuantity;
+  const singleItemSubtotal = singleMaterialCost + singleMachineCost + singleFinishingCost;
+  const total = serviceFeeHuf + singleItemSubtotal * selectedQuantity;
 
   return {
     filament,
+    printProfile,
+    quantity: selectedQuantity,
     scale: quoteScale,
     scaledVolumeCm3,
     scaledSurfaceAreaCm2,
     scaledSizeCm,
+    effectiveVolumeCm3,
     hours,
     materialCost,
     machineCost,
@@ -771,7 +838,21 @@ export function calculateQuote({
     serviceFee: serviceFeeHuf,
     total,
     massGrams,
+    singleItem: {
+      scaledVolumeCm3,
+      scaledSurfaceAreaCm2,
+      effectiveVolumeCm3: singleEffectiveVolumeCm3,
+      hours: singleHours,
+      materialCost: singleMaterialCost,
+      machineCost: singleMachineCost,
+      finishingCost: singleFinishingCost,
+      subtotal: singleItemSubtotal,
+      massGrams: singleMassGrams,
+    },
     materialPricePerGram: Number.isFinite(pricePerGram) ? pricePerGram : null,
+    infillPercent: selectedInfillPercent,
+    infillFactor,
+    effectiveInfillFactor,
     calculatorSettings: {
       serviceFeeHuf,
       machineRateHufPerHour,

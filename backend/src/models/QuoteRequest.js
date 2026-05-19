@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const quoteRequestSchema = new mongoose.Schema(
   {
+    requestType: {
+      type: String,
+      enum: ["custom", "premade"],
+      default: "custom",
+    },
     customer: {
       name: { type: String, required: true, trim: true },
       email: { type: String, required: true, lowercase: true, trim: true },
@@ -9,12 +14,12 @@ const quoteRequestSchema = new mongoose.Schema(
       message: { type: String, default: "", trim: true },
     },
     file: {
-      originalName: { type: String, required: true },
+      originalName: { type: String, default: "" },
       mimeType: { type: String, default: "" },
-      sizeBytes: { type: Number, required: true },
-      url: { type: String, required: true },
+      sizeBytes: { type: Number, default: 0 },
+      url: { type: String, default: "" },
       downloadPath: { type: String, default: "" },
-      publicId: { type: String, required: true },
+      publicId: { type: String, default: "" },
       resourceType: { type: String, default: "raw" },
       format: { type: String, default: "" },
     },
@@ -28,6 +33,14 @@ const quoteRequestSchema = new mongoose.Schema(
         name: { type: String, default: "" },
         hex: { type: String, default: "" },
       },
+    },
+    premadeModel: {
+      id: { type: String, default: "" },
+      title: { type: String, default: "" },
+      description: { type: String, default: "" },
+      priceHuf: { type: Number, default: null },
+      size: { type: String, default: "" },
+      imageUrl: { type: String, default: "" },
     },
     analysis: { type: mongoose.Schema.Types.Mixed, default: {} },
     quote: { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -53,6 +66,7 @@ quoteRequestSchema.set("toJSON", {
 });
 
 const QuoteRequest =
-  mongoose.models.QuoteRequest || mongoose.model("QuoteRequest", quoteRequestSchema);
+  mongoose.models.QuoteRequest ||
+  mongoose.model("QuoteRequest", quoteRequestSchema);
 
 export default QuoteRequest;

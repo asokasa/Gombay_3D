@@ -6,12 +6,28 @@ import QuoteRequest from "../models/QuoteRequest.js";
 import { sendQuoteRequestNotification } from "../lib/email.js";
 import { deleteUploadedFile, uploadRawFileBuffer } from "../lib/cloudinary.js";
 
-const SUPPORTED_EXTENSIONS = new Set([".stl", ".obj", ".step", ".stp", ".gltf", ".glb"]);
-const ADMIN_STATUS_VALUES = new Set(["new", "in_progress", "approved", "done", "archived"]);
+const SUPPORTED_EXTENSIONS = new Set([
+  ".stl",
+  ".obj",
+  ".step",
+  ".stp",
+  ".gltf",
+  ".glb",
+]);
+const ADMIN_STATUS_VALUES = new Set([
+  "new",
+  "in_progress",
+  "approved",
+  "done",
+  "archived",
+]);
 
 function parseJsonField(value, fallbackValue) {
   if (!value) {
     return fallbackValue;
+  }
+  if (typeof value === "object") {
+    return value;
   }
   try {
     return JSON.parse(value);
@@ -41,33 +57,60 @@ function sanitizeDownloadFileName(value) {
 }
 
 export async function createQuoteRequest(req, res) {
-  const { name, email, address, message = "", unitOverride = "auto", detectedUnitLabel = "" } = req.body;
+  const {
+    name,
+    email,
+    address,
+    message = "",
+    unitOverride = "auto",
+    detectedUnitLabel = "",
+  } = req.body;
+  const requestType =
+    String(req.body?.requestType || "custom").trim() === "premade"
+      ? "premade"
+      : "custom";
 
   if (!name || !email || !address) {
-    return res.status(400).json({ error: "Name, email, and address are required" });
+    return res
+      .status(400)
+      .json({ error: "Name, email, and address are required" });
   }
 
-  if (!req.file) {
+  if (requestType === "custom" && !req.file) {
     return res.status(400).json({ error: "3D model file is required" });
   }
 
-  const extension = path.extname(req.file.originalname || "").toLowerCase();
-  if (!SUPPORTED_EXTENSIONS.has(extension)) {
-    return res.status(400).json({ error: "Unsupported file extension" });
+  if (req.file) {
+    const extension = path.extname(req.file.originalname || "").toLowerCase();
+    if (!SUPPORTED_EXTENSIONS.has(extension)) {
+      return res.status(400).json({ error: "Unsupported file extension" });
+    }
   }
 
   const selectedMaterial = parseJsonField(req.body.selectedMaterial, {});
   const selectedColor = parseJsonField(req.body.selectedColor, {});
+  const premadeModel = parseJsonField(req.body.premadeModel, {});
   const analysis = parseJsonField(req.body.analysis, {});
   const quote = parseJsonField(req.body.quote, {});
-  const scaledSizeCm = normalizeNumberArray(parseJsonField(req.body.scaledSizeCm, []));
+  const scaledSizeCm = normalizeNumberArray(
+    parseJsonField(req.body.scaledSizeCm, []),
+  );
 
-  const uploadedFile = await uploadRawFileBuffer(req.file.buffer, req.file.originalname);
+  if (requestType === "premade" && !String(premadeModel.title || "").trim()) {
+    return res.status(400).json({ error: "Premade model is required" });
+  }
+
   const quoteRequestId = new mongoose.Types.ObjectId();
-  const downloadPath = buildDownloadPath(quoteRequestId.toString());
+  const uploadedFile = req.file
+    ? await uploadRawFileBuffer(req.file.buffer, req.file.originalname)
+    : null;
+  const downloadPath = uploadedFile
+    ? buildDownloadPath(quoteRequestId.toString())
+    : "";
 
   const created = await QuoteRequest.create({
     _id: quoteRequestId,
+    requestType,
     customer: {
       name: String(name).trim(),
       email: String(email).toLowerCase().trim(),
@@ -75,14 +118,14 @@ export async function createQuoteRequest(req, res) {
       message: String(message || "").trim(),
     },
     file: {
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype || "",
-      sizeBytes: req.file.size,
-      url: uploadedFile.secure_url,
+      originalName: req.file?.originalname || "",
+      mimeType: req.file?.mimetype || "",
+      sizeBytes: req.file?.size || 0,
+      url: uploadedFile?.secure_url || "",
       downloadPath,
-      publicId: uploadedFile.public_id,
-      resourceType: uploadedFile.resource_type || "raw",
-      format: uploadedFile.format || "",
+      publicId: uploadedFile?.public_id || "",
+      resourceType: uploadedFile?.resource_type || "raw",
+      format: uploadedFile?.format || "",
     },
     material: {
       key: selectedMaterial.key || "",
@@ -96,6 +139,19 @@ export async function createQuoteRequest(req, res) {
         name: selectedColor.name || selectedMaterial.color?.name || "",
         hex: selectedColor.hex || selectedMaterial.color?.hex || "",
       },
+    },
+    premadeModel: {
+      id: String(premadeModel.id || ""),
+      title: String(premadeModel.title || "").trim(),
+      description: String(premadeModel.description || "").trim(),
+      priceHuf: Number.isFinite(Number(premadeModel.priceHuf))
+        ? Number(premadeModel.priceHuf)
+        : null,
+      size: String(premadeModel.size || "").trim(),
+      imageUrl:
+        typeof premadeModel.image === "string"
+          ? premadeModel.image
+          : String(premadeModel.image?.url || premadeModel.imageUrl || ""),
     },
     analysis,
     quote,
@@ -124,16 +180,23 @@ export async function listQuoteRequests(req, res) {
     ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 250)
     : 100;
   const requestedStatus = String(req.query.status || "").trim();
-  const filter = ADMIN_STATUS_VALUES.has(requestedStatus) ? { status: requestedStatus } : {};
+  const filter = ADMIN_STATUS_VALUES.has(requestedStatus)
+    ? { status: requestedStatus }
+    : {};
 
-  const items = await QuoteRequest.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
+  const items = await QuoteRequest.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
 
   return res.json({
     items: items.map((item) => ({
       id: item._id.toString(),
+      requestType: item.requestType,
       customer: item.customer,
       file: item.file,
       material: item.material,
+      premadeModel: item.premadeModel,
       analysis: item.analysis,
       quote: item.quote,
       scaledSizeCm: item.scaledSizeCm,
@@ -171,9 +234,11 @@ export async function updateQuoteRequestStatus(req, res) {
   return res.json({
     item: {
       id: item._id.toString(),
+      requestType: item.requestType,
       customer: item.customer,
       file: item.file,
       material: item.material,
+      premadeModel: item.premadeModel,
       analysis: item.analysis,
       quote: item.quote,
       scaledSizeCm: item.scaledSizeCm,
@@ -233,7 +298,8 @@ export async function downloadQuoteRequestFile(req, res) {
     throw error;
   }
 
-  const originalName = item.file.originalName || `quote-request-${item._id.toString()}`;
+  const originalName =
+    item.file.originalName || `quote-request-${item._id.toString()}`;
   const safeFileName = sanitizeDownloadFileName(originalName);
 
   res.setHeader(
@@ -242,10 +308,15 @@ export async function downloadQuoteRequestFile(req, res) {
   );
   res.setHeader(
     "Content-Type",
-    item.file.mimeType || upstream.headers.get("content-type") || "application/octet-stream",
+    item.file.mimeType ||
+      upstream.headers.get("content-type") ||
+      "application/octet-stream",
   );
 
-  if (Number.isFinite(Number(item.file.sizeBytes)) && Number(item.file.sizeBytes) > 0) {
+  if (
+    Number.isFinite(Number(item.file.sizeBytes)) &&
+    Number(item.file.sizeBytes) > 0
+  ) {
     res.setHeader("Content-Length", String(item.file.sizeBytes));
   }
 

@@ -2,22 +2,16 @@ import { Link } from "react-router-dom";
 
 export default function Hero() {
   return (
-    <section
-      className="relative isolate overflow-hidden bg-cover bg-center px-4 py-16 text-white md:py-24"
-      style={{ backgroundImage: "url('/background.jpg')" }}
-    >
-      <div className="absolute inset-0 bg-[#03050a]/78" aria-hidden="true" />
-      <div
-        className="absolute inset-0 opacity-60"
+    <section className="relative isolate overflow-hidden px-4 pb-12 text-white [clip-path:inset(0)] md:pb-16">
+      <div className="absolute inset-0 z-0 bg-[#03050a]/78" aria-hidden="true" />
+      <img
+        src="/last_refined.png"
+        alt=""
+        className="hero-logo-glow pointer-events-none fixed left-1/2 top-1/2 z-0 h-[22rem] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 md:h-[34rem]"
         aria-hidden="true"
-        style={{
-          backgroundImage:
-            "linear-gradient(90deg, rgba(0,149,255,.18) 1px, transparent 1px), linear-gradient(0deg, rgba(255,45,85,.10) 1px, transparent 1px)",
-          backgroundSize: "72px 72px",
-        }}
       />
-
-      <div className="relative mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.05fr_0.95fr] md:items-center">
+      <div className="relative z-10 min-h-screen" aria-hidden="true" />
+      <div className="relative z-10 mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.05fr_0.95fr] md:items-start">
         <div className="max-w-3xl">
           <p className="neon-kicker">Gombay 3D</p>
           <h1 className="neon-heading mt-4 text-4xl font-extrabold md:text-6xl">

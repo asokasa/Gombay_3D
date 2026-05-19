@@ -63,14 +63,97 @@ describe("calculateQuote", () => {
     expect(quote.total).toBeCloseTo(12960);
   });
 
+  it("updates material volume from the selected infill percentage", () => {
+    const baseAnalysis = {
+      volumeCm3: 100,
+      surfaceAreaCm2: 50,
+      sizeCm: [10, 10, 1],
+      autoScale: { recommendedScale: 1 },
+    };
+
+    const lowInfill = calculateQuote({
+      filamentKey: "PLA",
+      analysis: baseAnalysis,
+      infillPercent: 20,
+    });
+    const highInfill = calculateQuote({
+      filamentKey: "PLA",
+      analysis: baseAnalysis,
+      infillPercent: 80,
+    });
+    const hollowInfill = calculateQuote({
+      filamentKey: "PLA",
+      analysis: baseAnalysis,
+      infillPercent: 0,
+    });
+
+    expect(lowInfill.infillPercent).toBe(20);
+    expect(lowInfill.effectiveVolumeCm3).toBeGreaterThan(hollowInfill.effectiveVolumeCm3);
+    expect(highInfill.effectiveVolumeCm3).toBeGreaterThan(lowInfill.effectiveVolumeCm3);
+    expect(highInfill.total).toBeGreaterThan(lowInfill.total);
+  });
+
+  it("adjusts print time for the selected print profile", () => {
+    const analysis = {
+      volumeCm3: 100,
+      surfaceAreaCm2: 50,
+      sizeCm: [10, 10, 1],
+      autoScale: { recommendedScale: 1 },
+    };
+
+    const normal = calculateQuote({
+      filamentKey: "PLA",
+      analysis,
+      infillPercent: 20,
+      printProfileKey: "NORMAL",
+    });
+    const detailed = calculateQuote({
+      filamentKey: "PLA",
+      analysis,
+      infillPercent: 20,
+      printProfileKey: "DETAIL",
+    });
+
+    expect(detailed.printProfile.layerHeightMm).toBe(0.1);
+    expect(detailed.hours).toBeGreaterThan(normal.hours);
+    expect(detailed.total).toBeGreaterThan(normal.total);
+  });
+
+  it("scales print-dependent totals by requested quantity", () => {
+    const analysis = {
+      volumeCm3: 100,
+      surfaceAreaCm2: 50,
+      sizeCm: [10, 10, 1],
+      autoScale: { recommendedScale: 1 },
+    };
+
+    const single = calculateQuote({
+      filamentKey: "PLA",
+      analysis,
+      infillPercent: 20,
+      quantity: 1,
+    });
+    const multi = calculateQuote({
+      filamentKey: "PLA",
+      analysis,
+      infillPercent: 20,
+      quantity: 3,
+    });
+
+    expect(multi.quantity).toBe(3);
+    expect(multi.singleItem.effectiveVolumeCm3).toBeCloseTo(single.effectiveVolumeCm3);
+    expect(multi.effectiveVolumeCm3).toBeCloseTo(single.effectiveVolumeCm3 * 3);
+    expect(multi.hours).toBeCloseTo(single.hours * 3);
+    expect(multi.materialCost).toBeCloseTo(single.materialCost * 3);
+    expect(multi.serviceFee).toBe(single.serviceFee);
+    expect(multi.total).toBeCloseTo(single.serviceFee + (single.total - single.serviceFee) * 3);
+  });
+
   it("uses STEP bounding-box dimensions for approximate surface and volume", async () => {
     const stepFile = {
       name: "sample.step",
       text: async () =>
-        [
-          "CARTESIAN_POINT('', (0, 0, 0));",
-          "CARTESIAN_POINT('', (10, 20, 30));",
-        ].join("\n"),
+        ["CARTESIAN_POINT('', (0, 0, 0));", "CARTESIAN_POINT('', (10, 20, 30));"].join("\n"),
     };
 
     const analysis = await analyze3DFile(stepFile);
