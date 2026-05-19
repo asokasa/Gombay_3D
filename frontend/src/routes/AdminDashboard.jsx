@@ -1075,39 +1075,35 @@ export default function AdminDashboard() {
         </section>
 
         <section className="neon-panel mt-6 rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
-          <label className="block text-sm font-semibold text-sky-900" htmlFor="admin-action">
-            Mit szeretnél csinálni?
-          </label>
-          <select
-            id="admin-action"
-            value={selectedAdminAction}
-            onChange={(event) => setSelectedAdminAction(event.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 md:max-w-md"
-          >
-            {ADMIN_ACTIONS.map((action) => (
-              <option key={action.key} value={action.key}>
-                {action.label}
-              </option>
-            ))}
-          </select>
+          <h2 className="text-sm font-semibold text-sky-900">Mit szeretnél csinálni?</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5" role="tablist">
-            {ADMIN_ACTIONS.map((action) => (
-              <button
-                key={action.key}
-                type="button"
-                onClick={() => setSelectedAdminAction(action.key)}
-                className={`rounded-lg border p-4 text-left transition ${
-                  selectedAdminAction === action.key
-                    ? "border-sky-400 bg-sky-50 text-sky-950 shadow-sm"
-                    : "border-slate-200 bg-white/80 text-slate-700 hover:border-sky-200 hover:bg-sky-50/50"
-                }`}
-                aria-selected={selectedAdminAction === action.key}
-                role="tab"
-              >
-                <span className="block text-sm font-bold">{action.label}</span>
-                <span className="mt-1 block text-xs text-slate-500">{action.description}</span>
-              </button>
-            ))}
+            {ADMIN_ACTIONS.map((action) => {
+              const isSelected = selectedAdminAction === action.key;
+
+              return (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={() => setSelectedAdminAction(action.key)}
+                  className={`group rounded-lg border p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-50 hover:text-red-950 hover:shadow-[0_0_24px_rgba(248,113,113,0.5)] ${
+                    isSelected
+                      ? "border-red-500 bg-red-50 text-red-950 shadow-[0_0_30px_rgba(239,68,68,0.75)] ring-2 ring-red-300/80"
+                      : "border-slate-200 bg-white/80 text-slate-700 shadow-sm"
+                  }`}
+                  aria-selected={isSelected}
+                  role="tab"
+                >
+                  <span className="block text-sm font-bold">{action.label}</span>
+                  <span
+                    className={`mt-1 block text-xs transition ${
+                      isSelected ? "text-red-700" : "text-slate-500 group-hover:text-red-700"
+                    }`}
+                  >
+                    {action.description}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
