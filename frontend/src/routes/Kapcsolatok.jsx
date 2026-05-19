@@ -24,11 +24,11 @@ export default function Kapcsolatok() {
             <div>
               <p className="neon-kicker">Kapcsolat</p>
               <h1 className="neon-heading mt-3 text-4xl font-extrabold md:text-5xl">
-                Beszélgessünk az ötletedről
+                Keress minket bátran!
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-400 md:text-lg">
                 Akár első 3D nyomtatásodban segítünk, akár sorozatgyártásra keresel megbízható
-                partnert, csapatunk készen áll válaszolni minden kérdésedre.
+                partnert, mindenben segítünk.
               </p>
             </div>
             <aside className="neon-panel rounded-lg p-6">
@@ -54,8 +54,7 @@ export default function Kapcsolatok() {
             <div>
               <h2 className="text-2xl font-semibold text-sky-100">Irodánk és műhelyünk</h2>
               <p className="mt-4 text-sm leading-relaxed text-slate-400">
-                Pécelen személyesen is találkozhatsz velünk. Előre egyeztetett időpontban bemutatjuk
-                gépparkunkat, és közösen megtervezzük a következő lépéseket.
+                
               </p>
               <ul className="mt-6 space-y-4">
                 {offices.map((office) => (
@@ -79,9 +78,7 @@ export default function Kapcsolatok() {
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               </div>
-              <div className="p-5 text-sm text-slate-400">
-                Pontos útvonaltervet a megerősítő e-mailben küldünk.
-              </div>
+              
             </div>
           </div>
         </section>

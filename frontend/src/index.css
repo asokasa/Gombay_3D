@@ -139,6 +139,26 @@ h6,
   filter: drop-shadow(0 0 32px rgba(0, 149, 255, 0.42));
 }
 
+.home-hero-backdrop,
+.home-section-backdrop {
+  pointer-events: none;
+  background: rgba(3, 5, 10, 0.62);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.home-hero-backdrop {
+  inset-inline: 0;
+  top: calc(100vh - 1.5rem);
+  bottom: 0;
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.35) 1.5rem, #000 6rem);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.35) 1.5rem, #000 6rem);
+}
+
+.home-section-backdrop {
+  background: rgba(3, 5, 10, 0.62);
+}
+
 @keyframes hero-logo-pulse {
   0%,
   100% {

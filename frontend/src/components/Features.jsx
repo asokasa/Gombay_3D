@@ -2,29 +2,39 @@ const features = [
   {
     title: "Gyors kivitelezés",
     text: "Rövid átfutás prototípusokhoz, javításokhoz és egyedi darabokhoz.",
-    img: "/Nyomtatok/Bambulab A1mini.webp",
+    img: "/Gyors_kivitelezés.png",
   },
   {
     title: "Egyedi alkatrészek",
     text: "Kis szériás gyártás, méretre igazítás és használatra kész tárgyak.",
-    img: "/nagyobb_nyomtato.png",
+    img: "/Egyedi__alkatrészek.png",
   },
   {
     title: "Online kalkulátor",
     text: "Fájlfeltöltés, modell-ellenőrzés és becsült ár egy helyen.",
-    img: "/background.jpg",
+    img: "/Online_kalkulator.png",
   },
   {
     title: "Kész modellek",
     text: "Választható modellek ajándékhoz, irodához, műhelyhez vagy teszthez.",
-    img: "/Nyomtatok/nagyobb_nyomtato.webp",
+    img: "/Kesz_modellek.png",
   },
 ];
 
 export default function Features() {
   return (
-    <section id="features" className="bg-[#03050a] py-14 md:py-20">
-      <div className="mx-auto max-w-6xl px-4 md:px-6">
+    <section
+      id="features"
+      className="relative isolate overflow-hidden py-14 [clip-path:inset(0)] md:py-20"
+    >
+      <img
+        src="/last_refined.png"
+        alt=""
+        className="hero-logo-glow pointer-events-none fixed left-1/2 top-1/2 z-0 h-[22rem] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 md:h-[34rem]"
+        aria-hidden="true"
+      />
+      <div className="home-section-backdrop absolute inset-0 z-[1]" aria-hidden="true" />
+      <div className="relative z-10 mx-auto max-w-7xl px-4 md:px-6">
         <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="neon-kicker">Szolgáltatások</p>
@@ -38,8 +48,10 @@ export default function Features() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((feature) => (
             <article key={feature.title} className="neon-card flex h-full flex-col overflow-hidden">
-              <img src={feature.img} alt="" className="h-40 w-full object-cover" />
-              <div className="flex flex-1 flex-col p-5">
+              <div className="flex aspect-square w-full items-center justify-center bg-[#050812] p-3">
+                <img src={feature.img} alt="" className="h-full w-full object-contain" />
+              </div>
+              <div className="flex flex-1 flex-col p-6">
                 <h3 className="text-lg font-semibold text-sky-100">{feature.title}</h3>
                 <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-400">{feature.text}</p>
               </div>
