@@ -9,6 +9,7 @@ import {
   FILAMENT_ORDER,
   PRINT_PROFILE_ORDER,
   MAX_DIMENSION_CM,
+  MAX_DIMENSION_MM,
   DEFAULT_CALCULATOR_SETTINGS,
   analyze3DFile,
   calculateQuote,
@@ -37,6 +38,7 @@ const BUILD_PLATE_COLOR = "#006EA8";
 const BUILD_VOLUME_SCENE_SIZE = 12;
 const SCENE_UNITS_PER_CM = BUILD_VOLUME_SCENE_SIZE / MAX_DIMENSION_CM;
 const BUILD_VOLUME_CM = [MAX_DIMENSION_CM, MAX_DIMENSION_CM, MAX_DIMENSION_CM];
+const BUILD_VOLUME_MM = [MAX_DIMENSION_MM, MAX_DIMENSION_MM, MAX_DIMENSION_MM];
 const FIT_EDGE_COLOR = "#00b85f";
 const FIT_EDGE_GLOW_COLOR = "#28ff8f";
 const FAIL_EDGE_COLOR = "#ff3355";
@@ -527,11 +529,12 @@ function formatPrintTime(hours) {
   return minuteValue ? `${hourValue} óra ${minuteValue} perc` : `${hourValue} óra`;
 }
 
-function formatDimensionArray(values) {
+function formatDimensionArray(values, unit = "cm") {
   if (!values?.length) {
     return "-";
   }
-  return values.map((value) => `${formatNumber(value, 2)} cm`).join(" x ");
+  const fractionDigits = unit === "mm" ? 0 : 2;
+  return values.map((value) => `${formatNumber(value, fractionDigits)} ${unit}`).join(" x ");
 }
 
 function formatPercentage(value) {
@@ -849,7 +852,10 @@ function QuoteCalculator() {
       const recommendedScale = result.autoScale?.recommendedScale;
       if (Number.isFinite(recommendedScale) && recommendedScale < 1) {
         messageParts.push(
-          `A modell nagyobb a ${MAX_DIMENSION_CM} cm-es nyomtatási térnél, ${formatNumber(
+          `A modell nagyobb a ${formatDimensionArray(
+            BUILD_VOLUME_MM,
+            "mm"
+          )}-es nyomtatási térnél, ${formatNumber(
             recommendedScale * 100,
             0
           )}% méretarányt használ az árbecslés. Jelezd az üzenetben, ha más méretet szeretnél.`
@@ -938,7 +944,10 @@ function QuoteCalculator() {
       const messageParts = [`${preset.label} feltételezésével újraértékeltük a modellt.`];
       if (result.autoScale?.recommendedScale < 1) {
         messageParts.push(
-          `A modell nagyobb a ${MAX_DIMENSION_CM} cm-es nyomtatási térnél, ${formatNumber(
+          `A modell nagyobb a ${formatDimensionArray(
+            BUILD_VOLUME_MM,
+            "mm"
+          )}-es nyomtatási térnél, ${formatNumber(
             result.autoScale.recommendedScale * 100,
             0
           )}% méretarányt használ az árbecslés.`
@@ -1095,8 +1104,8 @@ function QuoteCalculator() {
         <h2 className="text-2xl font-semibold text-sky-900">1. Modell feltöltése</h2>
         <p className="mt-2 text-sm text-slate-600">
           Tölts fel STL, STEP, OBJ vagy GLTF/GLB fájlt. A rendszer automatikusan ellenőrzi, hogy a
-          modell belefér-e a {MAX_DIMENSION_CM} x {MAX_DIMENSION_CM} x {MAX_DIMENSION_CM} cm-es
-          nyomtatási térbe és feltárja az esetleges problémákat.
+          modell belefér-e a {formatDimensionArray(BUILD_VOLUME_MM, "mm")}-es nyomtatási térbe és
+          feltárja az esetleges problémákat.
         </p>
         <label className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-sky-300 bg-sky-50/40 p-6 text-center text-sky-700 transition hover:border-sky-500 hover:bg-sky-100">
           <input
@@ -1146,7 +1155,7 @@ function QuoteCalculator() {
                 <div>
                   <h3 className="text-lg font-semibold text-sky-900">Nyomtatási tér</h3>
                   <p className="mt-1 text-sm text-slate-600">
-                    A kocka a legnagyobb nyomtatónk {formatDimensionArray(BUILD_VOLUME_CM)}-es
+                    A kocka a legnagyobb nyomtatónk {formatDimensionArray(BUILD_VOLUME_MM, "mm")}-es
                     munkaterét mutatja.
                   </p>
                 </div>

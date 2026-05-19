@@ -9,8 +9,8 @@ BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 Mesh.prototype.raycast = acceleratedRaycast;
 
-const MAX_DIMENSION_CM = 30;
-const MAX_DIMENSION_MM = MAX_DIMENSION_CM * 10;
+const MAX_DIMENSION_MM = 256;
+const MAX_DIMENSION_CM = MAX_DIMENSION_MM / 10;
 
 const BASE_NOZZLE_DIAMETER_MM = 0.4;
 const MIN_WALL_THRESHOLD_MM = BASE_NOZZLE_DIAMETER_MM * 2;
@@ -865,4 +865,4 @@ export function calculateQuote({
   };
 }
 
-export { MAX_DIMENSION_CM, FILAMENT_ORDER };
+export { MAX_DIMENSION_CM, MAX_DIMENSION_MM, FILAMENT_ORDER };

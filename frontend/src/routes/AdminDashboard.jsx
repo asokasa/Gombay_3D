@@ -6,18 +6,18 @@ import { api, apiBase } from "../lib/api";
 import { DEFAULT_CALCULATOR_SETTINGS } from "../lib/modelAnalysis";
 
 const FILTERS = [
-  { key: "active", label: "Active" },
-  { key: "approved", label: "Approved" },
-  { key: "archived", label: "Archived" },
-  { key: "all", label: "All" },
+  { key: "active", label: "Aktív" },
+  { key: "approved", label: "Elfogadott" },
+  { key: "archived", label: "Archivált" },
+  { key: "all", label: "Összes" },
 ];
 
 const STATUS_LABELS = {
-  new: "New",
-  in_progress: "In progress",
-  approved: "Approved",
-  done: "Done",
-  archived: "Archived",
+  new: "Új",
+  in_progress: "Folyamatban",
+  approved: "Elfogadva",
+  done: "Kész",
+  archived: "Archiválva",
 };
 
 const STATUS_CLASSES = {
@@ -38,28 +38,96 @@ const EMPTY_FILAMENT_FORM = {
   machineMultiplier: "1",
   priceHufPerGram: "30",
   sortOrder: "0",
-  colors: [{ name: "White", hex: "#f8fafc" }],
+  colors: [{ name: "Fehér", hex: "#f8fafc" }],
 };
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
+const NO_DATA = "nincs adat";
+
+const ADMIN_ACTIONS = [
+  {
+    key: "requests",
+    label: "Ajánlatkérések",
+    description: "Bejövő kérések és státuszok",
+  },
+  {
+    key: "references",
+    label: "Referenciák feltöltése",
+    description: "Galériaképek hozzáadása vagy törlése",
+  },
+  {
+    key: "models",
+    label: "Modellek feltöltése",
+    description: "Kész modellek kezelése",
+  },
+  {
+    key: "filaments",
+    label: "Filamentek kezelése",
+    description: "Anyagok, árak és színek módosítása",
+  },
+  {
+    key: "calculator",
+    label: "Árkalkulátor beállítások",
+    description: "Díjak és számítási paraméterek",
+  },
+];
 
 const CALCULATOR_SETTING_FIELDS = [
-  { key: "serviceFeeHuf", label: "Service base fee", suffix: "Ft" },
-  { key: "machineRateHufPerHour", label: "Machine hourly rate", suffix: "Ft/h" },
+  { key: "serviceFeeHuf", label: "Alapdíj", suffix: "Ft" },
+  { key: "machineRateHufPerHour", label: "Gép óradíja", suffix: "Ft/h" },
   {
     key: "fallbackMaterialCostHufPerCm3",
-    label: "Fallback material cost",
+    label: "Tartalék anyagköltség",
     suffix: "Ft/cm3",
   },
-  { key: "finishingCostHufPerCm2", label: "Surface finishing", suffix: "Ft/cm2" },
-  { key: "printSpeedCm3PerHour", label: "Print speed", suffix: "cm3/h" },
-  { key: "infillFactor", label: "Infill factor", suffix: "0-1" },
-  { key: "minimumPrintHours", label: "Minimum print time", suffix: "h" },
+  { key: "finishingCostHufPerCm2", label: "Felületkezelés", suffix: "Ft/cm2" },
+  { key: "printSpeedCm3PerHour", label: "Nyomtatási sebesség", suffix: "cm3/h" },
+  { key: "infillFactor", label: "Kitöltési szorzó", suffix: "0-1" },
+  { key: "minimumPrintHours", label: "Minimum nyomtatási idő", suffix: "h" },
 ];
+
+const ADMIN_ERROR_MESSAGES = {
+  "Failed to fetch": "Nem sikerült kapcsolódni a szerverhez.",
+  "Authorization token missing": "Hiányzik a bejelentkezési token.",
+  "Invalid token": "Érvénytelen bejelentkezés. Lépj be újra.",
+  Unauthorized: "Nincs jogosultságod ehhez a művelethez.",
+  "Unsupported image file extension": "Nem támogatott képfájl-kiterjesztés.",
+  "Image file is required": "Kép feltöltése kötelező.",
+  "Title is required": "A cím megadása kötelező.",
+  "Invalid reference image id": "Érvénytelen referenciakép-azonosító.",
+  "Reference image not found": "A referenciakép nem található.",
+  "Title, description, and size are required": "A cím, leírás és méret megadása kötelező.",
+  "Valid price is required": "Érvényes ár megadása kötelező.",
+  "Invalid model id": "Érvénytelen modellazonosító.",
+  "Model not found": "A modell nem található.",
+  "Filament key and label are required": "A filament kulcsa és neve kötelező.",
+  "Density, multipliers, and price must be valid numbers":
+    "A sűrűségnek, a szorzóknak és az árnak érvényes számnak kell lennie.",
+  "A filament with this key already exists": "Ilyen kulccsal már létezik filament.",
+  "Invalid filament id": "Érvénytelen filamentazonosító.",
+  "Filament not found": "A filament nem található.",
+  "All calculator settings must be valid numbers":
+    "Minden kalkulátorbeállításnak érvényes számnak kell lennie.",
+  "Costs must be non-negative, print speed must be greater than zero, and infill must be between 0 and 1":
+    "A költségek nem lehetnek negatívak, a nyomtatási sebességnek nullánál nagyobbnak, a kitöltésnek 0 és 1 közöttinek kell lennie.",
+  "Invalid quote request id": "Érvénytelen ajánlatkérés-azonosító.",
+  "Invalid quote request status": "Érvénytelen ajánlatkérés-státusz.",
+  "Quote request not found": "Az ajánlatkérés nem található.",
+  "Uploaded file not found": "A feltöltött fájl nem található.",
+  "Failed to download the uploaded file": "A feltöltött fájl letöltése sikertelen.",
+};
+
+function formatAdminError(error) {
+  const message = error?.message;
+  if (!message) {
+    return "Ismeretlen hiba történt.";
+  }
+  return ADMIN_ERROR_MESSAGES[message] || "Hiba történt. Ellenőrizd az adatokat, majd próbáld újra.";
+}
 
 function formatCurrency(value) {
   if (!Number.isFinite(Number(value))) {
-    return "n/a";
+    return NO_DATA;
   }
   return new Intl.NumberFormat("hu-HU", {
     style: "currency",
@@ -70,11 +138,11 @@ function formatCurrency(value) {
 
 function formatDate(value) {
   if (!value) {
-    return "n/a";
+    return NO_DATA;
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return "n/a";
+    return NO_DATA;
   }
   return new Intl.DateTimeFormat("hu-HU", {
     dateStyle: "medium",
@@ -84,14 +152,14 @@ function formatDate(value) {
 
 function formatSizeMb(sizeBytes) {
   if (!Number.isFinite(Number(sizeBytes))) {
-    return "n/a";
+    return NO_DATA;
   }
   return `${(Number(sizeBytes) / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 function formatDimensions(values) {
   if (!Array.isArray(values) || values.length === 0) {
-    return "n/a";
+    return NO_DATA;
   }
   return values.map((value) => `${Number(value).toFixed(2)} cm`).join(" x ");
 }
@@ -176,15 +244,15 @@ function CalculatorSettingsManager({ token, enabled }) {
     <section className="neon-panel mt-6 rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
       <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
         <div>
-          <p className="text-sm text-slate-500">Calculator Settings</p>
-          <h2 className="text-xl font-semibold text-sky-900">Additional Costs</h2>
+          <p className="text-sm text-slate-500">Árkalkulátor</p>
+          <h2 className="text-xl font-semibold text-sky-900">Kiegészítő költségek</h2>
         </div>
         <button
           type="button"
           onClick={handleLoadCurrentSettings}
           className="neon-button-secondary rounded-md px-4 py-2 text-sm"
         >
-          Reset Form
+          Űrlap visszaállítása
         </button>
       </div>
 
@@ -222,18 +290,20 @@ function CalculatorSettingsManager({ token, enabled }) {
           disabled={updateSettingsMutation.isPending}
           className="neon-button rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {updateSettingsMutation.isPending ? "Saving..." : "Save Cost Settings"}
+          {updateSettingsMutation.isPending ? "Mentés..." : "Költségbeállítások mentése"}
         </button>
       </form>
 
       {settingsQuery.isError ? (
-        <p className="mt-4 text-sm text-red-600">{settingsQuery.error.message}</p>
+        <p className="mt-4 text-sm text-red-600">{formatAdminError(settingsQuery.error)}</p>
       ) : null}
       {updateSettingsMutation.isError ? (
-        <p className="mt-4 text-sm text-red-600">{updateSettingsMutation.error.message}</p>
+        <p className="mt-4 text-sm text-red-600">
+          {formatAdminError(updateSettingsMutation.error)}
+        </p>
       ) : null}
       {updateSettingsMutation.isSuccess ? (
-        <p className="mt-4 text-sm text-emerald-700">Calculator cost settings saved.</p>
+        <p className="mt-4 text-sm text-emerald-700">A kalkulátor költségbeállításai mentve.</p>
       ) : null}
     </section>
   );
@@ -338,7 +408,7 @@ function FilamentManager({ token, enabled }) {
   }
 
   function handleDeleteFilament(item) {
-    const confirmed = window.confirm(`Delete filament "${item.label}" permanently?`);
+    const confirmed = window.confirm(`Biztosan végleg törlöd ezt a filamentet: "${item.label}"?`);
 
     if (!confirmed) {
       return;
@@ -367,16 +437,16 @@ function FilamentManager({ token, enabled }) {
     <section className="neon-panel mt-6 rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
       <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
         <div>
-          <p className="text-sm text-slate-500">Calculator Settings</p>
-          <h2 className="text-xl font-semibold text-sky-900">Filament Options</h2>
+          <p className="text-sm text-slate-500">Anyagbeállítások</p>
+          <h2 className="text-xl font-semibold text-sky-900">Filamentek kezelése</h2>
         </div>
-        <p className="text-sm font-semibold text-slate-500">{filaments.length} options</p>
+        <p className="text-sm font-semibold text-slate-500">{filaments.length} filament</p>
       </div>
 
       <form className="mt-4 space-y-4" onSubmit={handleFilamentSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-medium text-slate-700">
-            Key
+            Kulcs
             <input
               type="text"
               value={filamentForm.key}
@@ -390,7 +460,7 @@ function FilamentManager({ token, enabled }) {
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
-            Label
+            Megjelenő név
             <input
               type="text"
               value={filamentForm.label}
@@ -406,7 +476,7 @@ function FilamentManager({ token, enabled }) {
         </div>
 
         <label className="block text-sm font-medium text-slate-700">
-          Description
+          Leírás
           <textarea
             value={filamentForm.description}
             onChange={(event) =>
@@ -420,7 +490,7 @@ function FilamentManager({ token, enabled }) {
 
         <div className="grid gap-4 md:grid-cols-5">
           <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-            Temperature
+            Hőállóság
             <input
               type="text"
               value={filamentForm.temperature}
@@ -433,7 +503,7 @@ function FilamentManager({ token, enabled }) {
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
-            Density
+            Sűrűség
             <input
               type="number"
               min="0.01"
@@ -461,7 +531,7 @@ function FilamentManager({ token, enabled }) {
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
-            Order
+            Sorrend
             <input
               type="number"
               step="1"
@@ -476,7 +546,7 @@ function FilamentManager({ token, enabled }) {
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-medium text-slate-700">
-            Material multiplier
+            Anyagszorzó
             <input
               type="number"
               min="0.01"
@@ -493,7 +563,7 @@ function FilamentManager({ token, enabled }) {
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
-            Machine multiplier
+            Gépidő szorzó
             <input
               type="number"
               min="0.01"
@@ -513,13 +583,13 @@ function FilamentManager({ token, enabled }) {
 
         <div>
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-slate-700">Colors</p>
+            <p className="text-sm font-semibold text-slate-700">Színek</p>
             <button
               type="button"
               onClick={handleAddColor}
               className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-50"
             >
-              Add Color
+              Szín hozzáadása
             </button>
           </div>
           <div className="mt-2 space-y-2">
@@ -533,13 +603,13 @@ function FilamentManager({ token, enabled }) {
                   value={HEX_COLOR_PATTERN.test(color.hex) ? color.hex : "#ffffff"}
                   onChange={(event) => handleColorChange(index, { hex: event.target.value })}
                   className="h-10 w-14 rounded-md border border-slate-300 p-1"
-                  aria-label="Color swatch"
+                  aria-label="Színminta"
                 />
                 <input
                   type="text"
                   value={color.name}
                   onChange={(event) => handleColorChange(index, { name: event.target.value })}
-                  placeholder="Color name"
+                  placeholder="Szín neve"
                   maxLength={60}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
                 />
@@ -555,7 +625,7 @@ function FilamentManager({ token, enabled }) {
                   onClick={() => handleRemoveColor(index)}
                   className="rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-500"
                 >
-                  Remove
+                  Eltávolítás
                 </button>
               </div>
             ))}
@@ -568,7 +638,7 @@ function FilamentManager({ token, enabled }) {
             disabled={isSaving}
             className="neon-button rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSaving ? "Saving..." : editingId ? "Save Filament" : "Add Filament"}
+            {isSaving ? "Mentés..." : editingId ? "Filament mentése" : "Filament hozzáadása"}
           </button>
           {editingId ? (
             <button
@@ -576,23 +646,29 @@ function FilamentManager({ token, enabled }) {
               onClick={resetForm}
               className="neon-button-secondary rounded-md px-4 py-2 text-sm"
             >
-              Cancel Edit
+              Szerkesztés megszakítása
             </button>
           ) : null}
         </div>
       </form>
 
       {createFilamentMutation.isError ? (
-        <p className="mt-4 text-sm text-red-600">{createFilamentMutation.error.message}</p>
+        <p className="mt-4 text-sm text-red-600">
+          {formatAdminError(createFilamentMutation.error)}
+        </p>
       ) : null}
       {updateFilamentMutation.isError ? (
-        <p className="mt-4 text-sm text-red-600">{updateFilamentMutation.error.message}</p>
+        <p className="mt-4 text-sm text-red-600">
+          {formatAdminError(updateFilamentMutation.error)}
+        </p>
       ) : null}
       {deleteFilamentMutation.isError ? (
-        <p className="mt-4 text-sm text-red-600">{deleteFilamentMutation.error.message}</p>
+        <p className="mt-4 text-sm text-red-600">
+          {formatAdminError(deleteFilamentMutation.error)}
+        </p>
       ) : null}
       {filamentsQuery.isError ? (
-        <p className="mt-4 text-sm text-red-600">{filamentsQuery.error.message}</p>
+        <p className="mt-4 text-sm text-red-600">{formatAdminError(filamentsQuery.error)}</p>
       ) : null}
 
       <div className="mt-5 grid gap-3 lg:grid-cols-2">
@@ -604,7 +680,7 @@ function FilamentManager({ token, enabled }) {
                   {item.label} <span className="text-xs text-slate-500">({item.key})</span>
                 </p>
                 <p className="mt-1 text-xs text-slate-600">
-                  {formatCurrency(item.priceHufPerGram)} / g · density {item.density}
+                  {formatCurrency(item.priceHufPerGram)} / g · sűrűség {item.density}
                 </p>
                 {item.description ? (
                   <p className="mt-2 text-xs text-slate-600">{item.description}</p>
@@ -616,7 +692,7 @@ function FilamentManager({ token, enabled }) {
                   onClick={() => handleEditFilament(item)}
                   className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-50"
                 >
-                  Edit
+                  Szerkesztés
                 </button>
                 <button
                   type="button"
@@ -627,8 +703,8 @@ function FilamentManager({ token, enabled }) {
                   className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {deleteFilamentMutation.isPending && deleteFilamentMutation.variables === item.id
-                    ? "Deleting..."
-                    : "Delete"}
+                    ? "Törlés..."
+                    : "Törlés"}
                 </button>
               </div>
             </div>
@@ -648,7 +724,7 @@ function FilamentManager({ token, enabled }) {
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-xs text-slate-500">No colors configured.</p>
+              <p className="mt-3 text-xs text-slate-500">Nincs beállított szín.</p>
             )}
           </article>
         ))}
@@ -664,6 +740,7 @@ export default function AdminDashboard() {
   const [downloadingId, setDownloadingId] = useState("");
   const [downloadError, setDownloadError] = useState("");
   const [filter, setFilter] = useState("active");
+  const [selectedAdminAction, setSelectedAdminAction] = useState("requests");
   const [referenceForm, setReferenceForm] = useState({ title: "", image: null });
   const [modelForm, setModelForm] = useState({
     title: "",
@@ -804,7 +881,7 @@ export default function AdminDashboard() {
       <div className="neon-page min-h-screen">
         <Navbar />
         <main className="mx-auto max-w-6xl px-4 py-12">
-          <p className="text-slate-600">Loading dashboard...</p>
+          <p className="text-slate-600">Admin felület betöltése...</p>
         </main>
       </div>
     );
@@ -852,8 +929,12 @@ export default function AdminDashboard() {
   }
 
   function handleDelete(item) {
-    const customerName = item.customer?.name || "this quote";
-    const confirmed = window.confirm(`Delete ${customerName}'s quote request permanently?`);
+    const customerName = item.customer?.name;
+    const confirmed = window.confirm(
+      customerName
+        ? `Biztosan végleg törlöd ${customerName} ajánlatkérését?`
+        : "Biztosan végleg törlöd ezt az ajánlatkérést?"
+    );
 
     if (!confirmed) {
       return;
@@ -889,7 +970,7 @@ export default function AdminDashboard() {
   }
 
   function handleReferenceDelete(item) {
-    const confirmed = window.confirm(`Delete reference image "${item.title}" permanently?`);
+    const confirmed = window.confirm(`Biztosan végleg törlöd ezt a referenciaképet: "${item.title}"?`);
 
     if (!confirmed) {
       return;
@@ -899,7 +980,7 @@ export default function AdminDashboard() {
   }
 
   function handleModelDelete(item) {
-    const confirmed = window.confirm(`Delete model "${item.title}" permanently?`);
+    const confirmed = window.confirm(`Biztosan végleg törlöd ezt a modellt: "${item.title}"?`);
 
     if (!confirmed) {
       return;
@@ -933,7 +1014,7 @@ export default function AdminDashboard() {
           }
         }
 
-        throw new Error(message || "Download failed");
+        throw new Error(message || "A letöltés sikertelen.");
       }
 
       const blob = await response.blob();
@@ -941,13 +1022,13 @@ export default function AdminDashboard() {
       const link = document.createElement("a");
 
       link.href = objectUrl;
-      link.download = item.file?.originalName || `quote-request-${item.id}`;
+      link.download = item.file?.originalName || `ajanlatkeres-${item.id}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(objectUrl);
     } catch (error) {
-      setDownloadError(error.message || "Download failed");
+      setDownloadError(formatAdminError(error));
     } finally {
       setDownloadingId("");
     }
@@ -959,10 +1040,12 @@ export default function AdminDashboard() {
       <main className="mx-auto max-w-6xl px-4 py-12">
         <div className="neon-panel flex flex-col justify-between gap-4 rounded-lg p-6 shadow-sm ring-1 ring-slate-200 md:flex-row md:items-center">
           <div>
-            <p className="text-sm text-slate-500">Admin Dashboard</p>
-            <h1 className="neon-heading text-2xl font-bold">Welcome, {admin?.name || "Admin"}</h1>
+            <p className="text-sm text-slate-500">Admin felület</p>
+            <h1 className="neon-heading text-2xl font-bold">
+              Üdv, {admin?.name || "admin"}
+            </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Signed in as{" "}
+              Bejelentkezve mint{" "}
               <span className="font-medium text-slate-800">{admin?.username || admin?.email}</span>
             </p>
           </div>
@@ -971,45 +1054,87 @@ export default function AdminDashboard() {
             onClick={handleLogout}
             className="neon-button-secondary rounded-md px-4 py-2 font-semibold transition"
           >
-            Log out
+            Kijelentkezés
           </button>
         </div>
 
         <section className="mt-6 grid gap-4 md:grid-cols-3">
           <article className="neon-card rounded-lg p-5 shadow-sm ring-1 ring-slate-200">
-            <p className="text-sm text-slate-500">Active Requests</p>
+            <p className="text-sm text-slate-500">Aktív ajánlatkérések</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">{activeCount}</p>
-            <p className="mt-1 text-xs text-slate-500">{quoteRequests.length} total</p>
+            <p className="mt-1 text-xs text-slate-500">összesen {quoteRequests.length}</p>
           </article>
           <article className="neon-card rounded-lg p-5 shadow-sm ring-1 ring-slate-200">
-            <p className="text-sm text-slate-500">Approved</p>
+            <p className="text-sm text-slate-500">Elfogadva</p>
             <p className="mt-2 text-2xl font-semibold text-emerald-700">{approvedCount}</p>
           </article>
           <article className="neon-card rounded-lg p-5 shadow-sm ring-1 ring-slate-200">
-            <p className="text-sm text-slate-500">Archived</p>
+            <p className="text-sm text-slate-500">Archiválva</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">{archivedCount}</p>
           </article>
         </section>
 
-        <CalculatorSettingsManager token={token} enabled={Boolean(token && meQuery.isSuccess)} />
+        <section className="neon-panel mt-6 rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
+          <label className="block text-sm font-semibold text-sky-900" htmlFor="admin-action">
+            Mit szeretnél csinálni?
+          </label>
+          <select
+            id="admin-action"
+            value={selectedAdminAction}
+            onChange={(event) => setSelectedAdminAction(event.target.value)}
+            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 md:max-w-md"
+          >
+            {ADMIN_ACTIONS.map((action) => (
+              <option key={action.key} value={action.key}>
+                {action.label}
+              </option>
+            ))}
+          </select>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5" role="tablist">
+            {ADMIN_ACTIONS.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                onClick={() => setSelectedAdminAction(action.key)}
+                className={`rounded-lg border p-4 text-left transition ${
+                  selectedAdminAction === action.key
+                    ? "border-sky-400 bg-sky-50 text-sky-950 shadow-sm"
+                    : "border-slate-200 bg-white/80 text-slate-700 hover:border-sky-200 hover:bg-sky-50/50"
+                }`}
+                aria-selected={selectedAdminAction === action.key}
+                role="tab"
+              >
+                <span className="block text-sm font-bold">{action.label}</span>
+                <span className="mt-1 block text-xs text-slate-500">{action.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
 
-        <FilamentManager token={token} enabled={Boolean(token && meQuery.isSuccess)} />
+        {selectedAdminAction === "calculator" ? (
+          <CalculatorSettingsManager token={token} enabled={Boolean(token && meQuery.isSuccess)} />
+        ) : null}
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        {selectedAdminAction === "filaments" ? (
+          <FilamentManager token={token} enabled={Boolean(token && meQuery.isSuccess)} />
+        ) : null}
+
+        {selectedAdminAction === "references" ? (
+        <section className="mt-6">
           <div className="neon-panel rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
             <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
               <div>
-                <p className="text-sm text-slate-500">Referenciak Gallery</p>
-                <h2 className="text-xl font-semibold text-sky-900">Upload Reference Image</h2>
+                <p className="text-sm text-slate-500">Referenciák galéria</p>
+                <h2 className="text-xl font-semibold text-sky-900">Referenciakép feltöltése</h2>
               </div>
               <p className="text-sm font-semibold text-slate-500">
-                {referenceImages.length} images
+                {referenceImages.length} kép
               </p>
             </div>
 
             <form className="mt-4 space-y-4" onSubmit={handleReferenceSubmit}>
               <label className="block text-sm font-medium text-slate-700">
-                Short title
+                Rövid cím
                 <input
                   type="text"
                   value={referenceForm.title}
@@ -1022,7 +1147,7 @@ export default function AdminDashboard() {
                 />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Image
+                Kép
                 <input
                   key={referenceFileInputKey}
                   type="file"
@@ -1042,18 +1167,24 @@ export default function AdminDashboard() {
                 disabled={createReferenceMutation.isPending}
                 className="neon-button rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {createReferenceMutation.isPending ? "Uploading..." : "Upload Reference"}
+                {createReferenceMutation.isPending ? "Feltöltés..." : "Referencia feltöltése"}
               </button>
             </form>
 
             {createReferenceMutation.isError ? (
-              <p className="mt-4 text-sm text-red-600">{createReferenceMutation.error.message}</p>
+              <p className="mt-4 text-sm text-red-600">
+                {formatAdminError(createReferenceMutation.error)}
+              </p>
             ) : null}
             {deleteReferenceMutation.isError ? (
-              <p className="mt-4 text-sm text-red-600">{deleteReferenceMutation.error.message}</p>
+              <p className="mt-4 text-sm text-red-600">
+                {formatAdminError(deleteReferenceMutation.error)}
+              </p>
             ) : null}
             {referenceImagesQuery.isError ? (
-              <p className="mt-4 text-sm text-red-600">{referenceImagesQuery.error.message}</p>
+              <p className="mt-4 text-sm text-red-600">
+                {formatAdminError(referenceImagesQuery.error)}
+              </p>
             ) : null}
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -1082,27 +1213,31 @@ export default function AdminDashboard() {
                     >
                       {deleteReferenceMutation.isPending &&
                       deleteReferenceMutation.variables === item.id
-                        ? "Deleting..."
-                        : "Delete"}
+                        ? "Törlés..."
+                        : "Törlés"}
                     </button>
                   </div>
                 </article>
               ))}
             </div>
           </div>
+        </section>
+        ) : null}
 
+        {selectedAdminAction === "models" ? (
+        <section className="mt-6">
           <div className="neon-panel rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
             <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
               <div>
-                <p className="text-sm text-slate-500">Modellek Page</p>
-                <h2 className="text-xl font-semibold text-sky-900">Upload Model Listing</h2>
+                <p className="text-sm text-slate-500">Modellek oldal</p>
+                <h2 className="text-xl font-semibold text-sky-900">Kész modell feltöltése</h2>
               </div>
-              <p className="text-sm font-semibold text-slate-500">{premadeModels.length} models</p>
+              <p className="text-sm font-semibold text-slate-500">{premadeModels.length} modell</p>
             </div>
 
             <form className="mt-4 space-y-4" onSubmit={handleModelSubmit}>
               <label className="block text-sm font-medium text-slate-700">
-                Title
+                Cím
                 <input
                   type="text"
                   value={modelForm.title}
@@ -1115,7 +1250,7 @@ export default function AdminDashboard() {
                 />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Short description
+                Rövid leírás
                 <textarea
                   value={modelForm.description}
                   onChange={(event) =>
@@ -1129,7 +1264,7 @@ export default function AdminDashboard() {
               </label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-medium text-slate-700">
-                  Price HUF
+                  Ár forintban
                   <input
                     type="number"
                     min="0"
@@ -1143,7 +1278,7 @@ export default function AdminDashboard() {
                   />
                 </label>
                 <label className="block text-sm font-medium text-slate-700">
-                  Size
+                  Méret
                   <input
                     type="text"
                     value={modelForm.size}
@@ -1158,7 +1293,7 @@ export default function AdminDashboard() {
                 </label>
               </div>
               <label className="block text-sm font-medium text-slate-700">
-                Image
+                Kép
                 <input
                   key={modelFileInputKey}
                   type="file"
@@ -1178,18 +1313,24 @@ export default function AdminDashboard() {
                 disabled={createModelMutation.isPending}
                 className="neon-button rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {createModelMutation.isPending ? "Uploading..." : "Upload Model"}
+                {createModelMutation.isPending ? "Feltöltés..." : "Modell feltöltése"}
               </button>
             </form>
 
             {createModelMutation.isError ? (
-              <p className="mt-4 text-sm text-red-600">{createModelMutation.error.message}</p>
+              <p className="mt-4 text-sm text-red-600">
+                {formatAdminError(createModelMutation.error)}
+              </p>
             ) : null}
             {deleteModelMutation.isError ? (
-              <p className="mt-4 text-sm text-red-600">{deleteModelMutation.error.message}</p>
+              <p className="mt-4 text-sm text-red-600">
+                {formatAdminError(deleteModelMutation.error)}
+              </p>
             ) : null}
             {premadeModelsQuery.isError ? (
-              <p className="mt-4 text-sm text-red-600">{premadeModelsQuery.error.message}</p>
+              <p className="mt-4 text-sm text-red-600">
+                {formatAdminError(premadeModelsQuery.error)}
+              </p>
             ) : null}
 
             <div className="mt-5 space-y-3">
@@ -1219,19 +1360,21 @@ export default function AdminDashboard() {
                     className="self-start rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
                     {deleteModelMutation.isPending && deleteModelMutation.variables === item.id
-                      ? "Deleting..."
-                      : "Delete"}
+                      ? "Törlés..."
+                      : "Törlés"}
                   </button>
                 </article>
               ))}
             </div>
           </div>
         </section>
+        ) : null}
 
+        {selectedAdminAction === "requests" ? (
         <section className="neon-panel mt-6 rounded-lg p-6 shadow-sm ring-1 ring-slate-200">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-            <h2 className="text-xl font-semibold text-sky-900">Incoming Quote Requests</h2>
-            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Quote filters">
+            <h2 className="text-xl font-semibold text-sky-900">Beérkező ajánlatkérések</h2>
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Ajánlatkérés szűrők">
               {FILTERS.map((item) => (
                 <button
                   key={item.key}
@@ -1252,15 +1395,17 @@ export default function AdminDashboard() {
           </div>
 
           {quoteRequestsQuery.isError ? (
-            <p className="mt-4 text-sm text-red-600">{quoteRequestsQuery.error.message}</p>
+            <p className="mt-4 text-sm text-red-600">{formatAdminError(quoteRequestsQuery.error)}</p>
           ) : null}
 
           {updateStatusMutation.isError ? (
-            <p className="mt-4 text-sm text-red-600">{updateStatusMutation.error.message}</p>
+            <p className="mt-4 text-sm text-red-600">
+              {formatAdminError(updateStatusMutation.error)}
+            </p>
           ) : null}
 
           {deleteMutation.isError ? (
-            <p className="mt-4 text-sm text-red-600">{deleteMutation.error.message}</p>
+            <p className="mt-4 text-sm text-red-600">{formatAdminError(deleteMutation.error)}</p>
           ) : null}
 
           {!quoteRequestsQuery.isError && downloadError ? (
@@ -1268,7 +1413,7 @@ export default function AdminDashboard() {
           ) : null}
 
           {!quoteRequestsQuery.isError && visibleQuoteRequests.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-600">No quote requests in this view.</p>
+            <p className="mt-4 text-sm text-slate-600">Nincs ajánlatkérés ebben a nézetben.</p>
           ) : null}
 
           <div className="mt-4 space-y-4">
@@ -1281,72 +1426,72 @@ export default function AdminDashboard() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold text-slate-900">
-                        {item.customer?.name || "Unnamed"}
+                        {item.customer?.name || "Névtelen"}
                       </h3>
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
                           STATUS_CLASSES[item.status] || STATUS_CLASSES.new
                         }`}
                       >
-                        {STATUS_LABELS[item.status] || item.status || "New"}
+                        {STATUS_LABELS[item.status] || item.status || "Új"}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-600">{item.customer?.email || "n/a"}</p>
-                    <p className="text-sm text-slate-600">{item.customer?.address || "n/a"}</p>
+                    <p className="text-sm text-slate-600">{item.customer?.email || NO_DATA}</p>
+                    <p className="text-sm text-slate-600">{item.customer?.address || NO_DATA}</p>
                     {item.customer?.message ? (
                       <p className="mt-2 text-sm text-slate-700">
-                        <span className="font-medium">Message:</span> {item.customer.message}
+                        <span className="font-medium">Üzenet:</span> {item.customer.message}
                       </p>
                     ) : null}
                   </div>
                   <div className="text-sm text-slate-600">
                     <p>
-                      <span className="font-medium">Submitted:</span> {formatDate(item.createdAt)}
+                      <span className="font-medium">Beküldve:</span> {formatDate(item.createdAt)}
                     </p>
                     <p>
-                      <span className="font-medium">Type:</span>{" "}
-                      {item.requestType === "premade" ? "Premade model" : "Custom upload"}
+                      <span className="font-medium">Típus:</span>{" "}
+                      {item.requestType === "premade" ? "Kész modell" : "Egyedi feltöltés"}
                     </p>
                     {item.requestType === "premade" ? (
                       <p>
-                        <span className="font-medium">Selected Model:</span>{" "}
-                        {item.premadeModel?.title || item.quote?.modelTitle || "n/a"}
+                        <span className="font-medium">Kiválasztott modell:</span>{" "}
+                        {item.premadeModel?.title || item.quote?.modelTitle || NO_DATA}
                       </p>
                     ) : null}
                     <p>
-                      <span className="font-medium">Material:</span> {item.material?.label || "n/a"}
+                      <span className="font-medium">Anyag:</span> {item.material?.label || NO_DATA}
                       {item.material?.color?.name ? `, ${item.material.color.name}` : ""}
                     </p>
                     {item.requestType !== "premade" ? (
                       <p>
-                        <span className="font-medium">Print:</span>{" "}
-                        {item.quote?.printProfile?.label || "n/a"}
+                        <span className="font-medium">Nyomtatás:</span>{" "}
+                        {item.quote?.printProfile?.label || NO_DATA}
                         {Number.isFinite(Number(item.quote?.infillPercent))
-                          ? `, ${Number(item.quote.infillPercent)}% infill`
+                          ? `, ${Number(item.quote.infillPercent)}% kitöltés`
                           : ""}
                       </p>
                     ) : null}
                     <p>
-                      <span className="font-medium">Quantity:</span>{" "}
+                      <span className="font-medium">Darabszám:</span>{" "}
                       {Number.isFinite(Number(item.quote?.quantity))
-                        ? `${Math.max(1, Math.trunc(Number(item.quote.quantity)))} pcs`
-                        : "1 pc"}
+                        ? `${Math.max(1, Math.trunc(Number(item.quote.quantity)))} db`
+                        : "1 db"}
                     </p>
                     <p>
-                      <span className="font-medium">Estimated Total:</span>{" "}
+                      <span className="font-medium">Becsült végösszeg:</span>{" "}
                       {formatCurrency(item.quote?.total)}
                     </p>
                     <p>
                       <span className="font-medium">
-                        {item.requestType === "premade" ? "Model Size:" : "Scaled Size:"}
+                        {item.requestType === "premade" ? "Modell mérete:" : "Méretezett méret:"}
                       </span>{" "}
                       {item.requestType === "premade"
-                        ? item.premadeModel?.size || "n/a"
+                        ? item.premadeModel?.size || NO_DATA
                         : formatDimensions(item.scaledSizeCm || item.analysis?.sizeCm)}
                     </p>
                     {item.file?.url ? (
                       <p>
-                        <span className="font-medium">File Size:</span>{" "}
+                        <span className="font-medium">Fájlméret:</span>{" "}
                         {formatSizeMb(item.file?.sizeBytes)}
                       </p>
                     ) : null}
@@ -1358,7 +1503,7 @@ export default function AdminDashboard() {
                           rel="noreferrer"
                           className="inline-block font-medium text-sky-700 hover:text-sky-500"
                         >
-                          Open Uploaded File
+                          Feltöltött fájl megnyitása
                         </a>
                         <button
                           type="button"
@@ -1366,7 +1511,7 @@ export default function AdminDashboard() {
                           disabled={downloadingId === item.id}
                           className="font-medium text-emerald-700 transition hover:text-emerald-600 disabled:cursor-not-allowed disabled:text-slate-400"
                         >
-                          {downloadingId === item.id ? "Downloading..." : "Download File"}
+                          {downloadingId === item.id ? "Letöltés..." : "Fájl letöltése"}
                         </button>
                       </div>
                     ) : null}
@@ -1381,8 +1526,8 @@ export default function AdminDashboard() {
                   >
                     {pendingActionId === item.id &&
                     updateStatusMutation.variables?.status === "approved"
-                      ? "Approving..."
-                      : "Approve"}
+                      ? "Elfogadás..."
+                      : "Elfogadás"}
                   </button>
                   {item.status === "archived" ? (
                     <button
@@ -1391,7 +1536,7 @@ export default function AdminDashboard() {
                       disabled={pendingActionId === item.id}
                       className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                     >
-                      Restore
+                      Visszaállítás
                     </button>
                   ) : (
                     <button
@@ -1402,8 +1547,8 @@ export default function AdminDashboard() {
                     >
                       {pendingActionId === item.id &&
                       updateStatusMutation.variables?.status === "archived"
-                        ? "Archiving..."
-                        : "Archive"}
+                        ? "Archiválás..."
+                        : "Archiválás"}
                     </button>
                   )}
                   <button
@@ -1413,13 +1558,13 @@ export default function AdminDashboard() {
                     className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
                     {pendingActionId === item.id && deleteMutation.variables === item.id
-                      ? "Deleting..."
-                      : "Delete"}
+                      ? "Törlés..."
+                      : "Törlés"}
                   </button>
                 </div>
                 <details className="mt-3 rounded-md bg-white p-3 text-xs text-slate-700">
                   <summary className="cursor-pointer font-semibold text-slate-800">
-                    Full technical details
+                    Részletes technikai adatok
                   </summary>
                   <pre className="mt-2 overflow-auto whitespace-pre-wrap break-words">
                     {JSON.stringify(
@@ -1448,6 +1593,7 @@ export default function AdminDashboard() {
             ))}
           </div>
         </section>
+        ) : null}
       </main>
     </div>
   );

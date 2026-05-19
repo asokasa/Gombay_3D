@@ -9,14 +9,14 @@ describe("calculateQuote", () => {
         volumeCm3: 1000,
         surfaceAreaCm2: 600,
         sizeCm: [40, 10, 10],
-        autoScale: { recommendedScale: 0.75 },
+        autoScale: { recommendedScale: 0.64 },
       },
     });
 
-    expect(quote.scale).toBe(0.75);
-    expect(quote.scaledSizeCm).toEqual([30, 7.5, 7.5]);
-    expect(quote.scaledVolumeCm3).toBeCloseTo(421.875);
-    expect(quote.scaledSurfaceAreaCm2).toBeCloseTo(337.5);
+    expect(quote.scale).toBe(0.64);
+    expect(quote.scaledSizeCm).toEqual([25.6, 6.4, 6.4]);
+    expect(quote.scaledVolumeCm3).toBeCloseTo(262.144);
+    expect(quote.scaledSurfaceAreaCm2).toBeCloseTo(245.76);
   });
 
   it("keeps unknown surface area unknown instead of pricing it as zero surface", () => {
