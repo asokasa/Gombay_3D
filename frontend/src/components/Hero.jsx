@@ -29,11 +29,11 @@ export default function Hero() {
           </div>
         </div>
 
-        <div className="neon-panel overflow-hidden rounded-lg">
+        <div className="flex min-h-72 items-center justify-center md:min-h-96">
           <img
-            src="/nagyobb_nyomtato.png"
+            src="/nagyobb_nyomtato_cutout.png"
             alt="3D nyomtató munka közben"
-            className="h-72 w-full object-cover md:h-96"
+            className="h-72 w-full object-contain drop-shadow-[0_0_28px_rgba(0,149,255,0.22)] md:h-96"
           />
         </div>
       </div>

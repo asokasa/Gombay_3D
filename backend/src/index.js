@@ -63,11 +63,17 @@ app.use((err, _req, res, _next) => {
   if (err.name === "MulterError" && err.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({ error: "Uploaded file exceeds the 50MB limit" });
   }
+  if (err.name === "MulterError" && err.code === "LIMIT_UNEXPECTED_FILE") {
+    return res.status(400).json({ error: "You can upload up to 3 images" });
+  }
   if (err.message === "Unsupported file extension") {
     return res.status(400).json({ error: "Unsupported file extension" });
   }
   if (err.message === "Unsupported image file extension") {
     return res.status(400).json({ error: "Unsupported image file extension" });
+  }
+  if (err.message === "You can upload up to 3 images") {
+    return res.status(400).json({ error: "You can upload up to 3 images" });
   }
   const status = err.statusCode || 500;
   res.status(status).json({ error: err.message || "Internal server error" });

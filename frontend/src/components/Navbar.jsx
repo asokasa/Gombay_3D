@@ -19,7 +19,7 @@ export default function Navbar() {
       <div className="relative mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link to="/" onClick={handleNavigate} className="flex items-center">
           <img
-            src="/last_refined.png"
+            src="/last_refined_cropped.png"
             alt="Gombay 3D logo"
             className="h-10 w-auto drop-shadow-[0_0_14px_rgba(0,149,255,0.75)] md:h-12"
           />

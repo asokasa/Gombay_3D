@@ -23,6 +23,7 @@ import {
 } from "../controllers/quoteController.js";
 
 const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
+const MAX_ITEM_IMAGES = 3;
 const SUPPORTED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]);
 
 const imageUpload = multer({
@@ -49,9 +50,14 @@ router.patch("/quote-requests/:id/status", asyncHandler(updateQuoteRequestStatus
 router.delete("/quote-requests/:id", asyncHandler(deleteQuoteRequest));
 router.get("/quote-requests/:id/download", asyncHandler(downloadQuoteRequestFile));
 
-router.post("/reference-images", imageUpload.single("image"), asyncHandler(createReferenceImage));
+const itemImageUpload = imageUpload.fields([
+  { name: "images", maxCount: MAX_ITEM_IMAGES },
+  { name: "image", maxCount: MAX_ITEM_IMAGES },
+]);
+
+router.post("/reference-images", itemImageUpload, asyncHandler(createReferenceImage));
 router.delete("/reference-images/:id", asyncHandler(deleteReferenceImage));
-router.post("/premade-models", imageUpload.single("image"), asyncHandler(createPremadeModel));
+router.post("/premade-models", itemImageUpload, asyncHandler(createPremadeModel));
 router.delete("/premade-models/:id", asyncHandler(deletePremadeModel));
 router.post("/filaments", asyncHandler(createFilament));
 router.patch("/filaments/:id", asyncHandler(updateFilament));

@@ -43,6 +43,7 @@ const EMPTY_FILAMENT_FORM = {
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
 const NO_DATA = "nincs adat";
+const MAX_ITEM_IMAGES = 3;
 
 const ADMIN_ACTIONS = [
   {
@@ -87,6 +88,7 @@ const CALCULATOR_SETTING_FIELDS = [
 ];
 
 const ADMIN_ERROR_MESSAGES = {
+  "You can upload up to 3 images": "Legfeljebb 3 képet tölthetsz fel egy elemhez.",
   "Failed to fetch": "Nem sikerült kapcsolódni a szerverhez.",
   "Authorization token missing": "Hiányzik a bejelentkezési token.",
   "Invalid token": "Érvénytelen bejelentkezés. Lépj be újra.",
@@ -134,6 +136,18 @@ function formatCurrency(value) {
     currency: "HUF",
     maximumFractionDigits: 0,
   }).format(Math.round(Number(value)));
+}
+
+function selectImageFiles(fileList) {
+  return Array.from(fileList ?? []).slice(0, MAX_ITEM_IMAGES);
+}
+
+function getItemImages(item) {
+  if (Array.isArray(item.images) && item.images.length > 0) {
+    return item.images;
+  }
+
+  return item.image?.url ? [item.image] : [];
 }
 
 function formatDate(value) {
@@ -741,13 +755,13 @@ export default function AdminDashboard() {
   const [downloadError, setDownloadError] = useState("");
   const [filter, setFilter] = useState("active");
   const [selectedAdminAction, setSelectedAdminAction] = useState("requests");
-  const [referenceForm, setReferenceForm] = useState({ title: "", image: null });
+  const [referenceForm, setReferenceForm] = useState({ title: "", images: [] });
   const [modelForm, setModelForm] = useState({
     title: "",
     description: "",
     priceHuf: "",
     size: "",
-    image: null,
+    images: [],
   });
   const [referenceFileInputKey, setReferenceFileInputKey] = useState(0);
   const [modelFileInputKey, setModelFileInputKey] = useState(0);
@@ -807,7 +821,9 @@ export default function AdminDashboard() {
     mutationFn: (payload) => {
       const body = new FormData();
       body.append("title", payload.title);
-      body.append("image", payload.image);
+      payload.images.forEach((image) => {
+        body.append("images", image);
+      });
 
       return api("/admin/reference-images", {
         method: "POST",
@@ -816,7 +832,7 @@ export default function AdminDashboard() {
       });
     },
     onSuccess: () => {
-      setReferenceForm({ title: "", image: null });
+      setReferenceForm({ title: "", images: [] });
       setReferenceFileInputKey((value) => value + 1);
       queryClient.invalidateQueries({ queryKey: ["reference-images"] });
     },
@@ -840,7 +856,9 @@ export default function AdminDashboard() {
       body.append("description", payload.description);
       body.append("priceHuf", payload.priceHuf);
       body.append("size", payload.size);
-      body.append("image", payload.image);
+      payload.images.forEach((image) => {
+        body.append("images", image);
+      });
 
       return api("/admin/premade-models", {
         method: "POST",
@@ -849,7 +867,7 @@ export default function AdminDashboard() {
       });
     },
     onSuccess: () => {
-      setModelForm({ title: "", description: "", priceHuf: "", size: "", image: null });
+      setModelForm({ title: "", description: "", priceHuf: "", size: "", images: [] });
       setModelFileInputKey((value) => value + 1);
       queryClient.invalidateQueries({ queryKey: ["premade-models"] });
     },
@@ -946,7 +964,7 @@ export default function AdminDashboard() {
   function handleReferenceSubmit(event) {
     event.preventDefault();
 
-    if (!referenceForm.title.trim() || !referenceForm.image) {
+    if (!referenceForm.title.trim() || !referenceForm.images.length) {
       return;
     }
 
@@ -961,7 +979,7 @@ export default function AdminDashboard() {
       !modelForm.description.trim() ||
       !modelForm.priceHuf ||
       !modelForm.size.trim() ||
-      !modelForm.image
+      !modelForm.images.length
     ) {
       return;
     }
@@ -1147,16 +1165,22 @@ export default function AdminDashboard() {
                 <input
                   key={referenceFileInputKey}
                   type="file"
+                  multiple
                   accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                   onChange={(event) =>
                     setReferenceForm((value) => ({
                       ...value,
-                      image: event.target.files?.[0] || null,
+                      images: selectImageFiles(event.target.files),
                     }))
                   }
                   required
                   className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
                 />
+                {referenceForm.images.length ? (
+                  <span className="mt-1 block text-xs text-slate-500">
+                    {referenceForm.images.length} kiválasztott kép
+                  </span>
+                ) : null}
               </label>
               <button
                 type="submit"
@@ -1190,7 +1214,7 @@ export default function AdminDashboard() {
                   className="rounded-lg border border-slate-200 bg-slate-50 p-3"
                 >
                   <img
-                    src={item.image?.url}
+                    src={getItemImages(item)[0]?.url}
                     alt={item.title}
                     className="aspect-square w-full rounded-md object-cover"
                   />
@@ -1198,6 +1222,9 @@ export default function AdminDashboard() {
                     <p className="min-w-0 truncate text-sm font-semibold text-slate-800">
                       {item.title}
                     </p>
+                    {getItemImages(item).length > 1 ? (
+                      <p className="text-xs text-slate-500">{getItemImages(item).length} kép</p>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => handleReferenceDelete(item)}
@@ -1293,16 +1320,22 @@ export default function AdminDashboard() {
                 <input
                   key={modelFileInputKey}
                   type="file"
+                  multiple
                   accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                   onChange={(event) =>
                     setModelForm((value) => ({
                       ...value,
-                      image: event.target.files?.[0] || null,
+                      images: selectImageFiles(event.target.files),
                     }))
                   }
                   required
                   className="mt-1 rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
                 />
+                {modelForm.images.length ? (
+                  <span className="mt-1 block text-xs text-slate-500">
+                    {modelForm.images.length} kiválasztott kép
+                  </span>
+                ) : null}
               </label>
               <button
                 type="submit"
@@ -1336,7 +1369,7 @@ export default function AdminDashboard() {
                   className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
                 >
                   <img
-                    src={item.image?.url}
+                    src={getItemImages(item)[0]?.url}
                     alt={item.title}
                     className="h-20 w-20 shrink-0 rounded-md object-cover"
                   />
@@ -1346,6 +1379,9 @@ export default function AdminDashboard() {
                       {formatCurrency(item.priceHuf)} · {item.size}
                     </p>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-600">{item.description}</p>
+                    {getItemImages(item).length > 1 ? (
+                      <p className="mt-1 text-xs text-slate-500">{getItemImages(item).length} kép</p>
+                    ) : null}
                   </div>
                   <button
                     type="button"

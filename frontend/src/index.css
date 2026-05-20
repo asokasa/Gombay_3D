@@ -57,6 +57,44 @@ body::before {
   min-height: 100vh;
 }
 
+.public-particle-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(0, 149, 255, 0.1), transparent 22rem),
+    linear-gradient(135deg, #03050a 0%, #07111c 52%, #03050a 100%);
+  color: var(--text);
+}
+
+.public-particle-shell .neon-page {
+  background: transparent;
+}
+
+.public-particle-content {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+}
+
+.site-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  opacity: 0.42;
+}
+
+.site-particles canvas {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
 img,
 canvas,
 iframe {
@@ -157,6 +195,16 @@ h6,
 
 .home-section-backdrop {
   background: rgba(3, 5, 10, 0.62);
+}
+
+.home-blur-divider {
+  position: relative;
+  z-index: 20;
+  height: 5px;
+  background: #c71a3c;
+  box-shadow:
+    0 0 18px rgba(199, 26, 60, 0.82),
+    0 0 36px rgba(199, 26, 60, 0.48);
 }
 
 @keyframes hero-logo-pulse {

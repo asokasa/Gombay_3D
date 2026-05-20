@@ -1,6 +1,7 @@
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Features from "../components/Features";
+import LatestReferencesCarousel from "../components/LatestReferencesCarousel";
 import Footer from "../components/Footer";
 
 export default function Home() {
@@ -9,7 +10,10 @@ export default function Home() {
       <Navbar />
       <main className="flex-grow">
         <Hero />
+        <div className="home-blur-divider mx-auto w-3/4 rounded-full" aria-hidden="true" />
         <Features />
+        <div className="home-blur-divider mx-auto w-3/4 rounded-full" aria-hidden="true" />
+        <LatestReferencesCarousel />
       </main>
       <Footer />
     </div>

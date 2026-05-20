@@ -3,33 +3,66 @@ import ReferenceImage from "../models/ReferenceImage.js";
 import PremadeModel from "../models/PremadeModel.js";
 import { deleteUploadedFile, getCloudinaryFolders, uploadImageBuffer } from "../lib/cloudinary.js";
 
-function requireImageFile(req, res) {
-  if (!req.file) {
+const MAX_ITEM_IMAGES = 3;
+
+function getUploadedImageFiles(req) {
+  if (Array.isArray(req.files)) {
+    return req.files;
+  }
+
+  if (req.files && typeof req.files === "object") {
+    return Object.values(req.files).flat();
+  }
+
+  return req.file ? [req.file] : [];
+}
+
+function requireImageFiles(req, res) {
+  const files = getUploadedImageFiles(req);
+
+  if (!files.length) {
     res.status(400).json({ error: "Image file is required" });
     return null;
   }
 
-  return req.file;
+  if (files.length > MAX_ITEM_IMAGES) {
+    res.status(400).json({ error: "You can upload up to 3 images" });
+    return null;
+  }
+
+  return files;
+}
+
+function normalizeImages(item) {
+  if (Array.isArray(item.images) && item.images.length > 0) {
+    return item.images;
+  }
+
+  return item.image?.url ? [item.image] : [];
 }
 
 function serializeReferenceImage(item) {
+  const images = normalizeImages(item);
   return {
     id: item._id.toString(),
     title: item.title,
-    image: item.image,
+    image: images[0] ?? item.image,
+    images,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
 }
 
 function serializePremadeModel(item) {
+  const images = normalizeImages(item);
   return {
     id: item._id.toString(),
     title: item.title,
     description: item.description,
     priceHuf: item.priceHuf,
     size: item.size,
-    image: item.image,
+    image: images[0] ?? item.image,
+    images,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -49,6 +82,28 @@ function buildImagePayload(file, uploadedImage) {
   };
 }
 
+async function uploadImageFiles(files, folder) {
+  const uploadedImages = await Promise.all(
+    files.map((file) => uploadImageBuffer(file.buffer, file.originalname, folder)),
+  );
+
+  return files.map((file, index) => buildImagePayload(file, uploadedImages[index]));
+}
+
+async function deleteItemImages(item) {
+  const seenPublicIds = new Set();
+  const images = normalizeImages(item);
+
+  for (const image of images) {
+    if (!image?.publicId || seenPublicIds.has(image.publicId)) {
+      continue;
+    }
+
+    seenPublicIds.add(image.publicId);
+    await deleteUploadedFile(image.publicId, image.resourceType || "image");
+  }
+}
+
 export async function listReferenceImages(_req, res) {
   const items = await ReferenceImage.find().sort({ createdAt: -1 }).limit(200).lean();
 
@@ -59,9 +114,9 @@ export async function listReferenceImages(_req, res) {
 
 export async function createReferenceImage(req, res) {
   const title = String(req.body?.title || "").trim();
-  const file = requireImageFile(req, res);
+  const files = requireImageFiles(req, res);
 
-  if (!file) {
+  if (!files) {
     return;
   }
 
@@ -69,10 +124,11 @@ export async function createReferenceImage(req, res) {
     return res.status(400).json({ error: "Title is required" });
   }
 
-  const uploadedImage = await uploadImageBuffer(file.buffer, file.originalname, getCloudinaryFolders().referencePics);
+  const images = await uploadImageFiles(files, getCloudinaryFolders().referencePics);
   const item = await ReferenceImage.create({
     title,
-    image: buildImagePayload(file, uploadedImage),
+    image: images[0],
+    images,
   });
 
   return res.status(201).json({ item: serializeReferenceImage(item) });
@@ -91,7 +147,7 @@ export async function deleteReferenceImage(req, res) {
     return res.status(404).json({ error: "Reference image not found" });
   }
 
-  await deleteUploadedFile(item.image?.publicId, item.image?.resourceType || "image");
+  await deleteItemImages(item);
   await item.deleteOne();
 
   return res.status(204).send();
@@ -110,9 +166,9 @@ export async function createPremadeModel(req, res) {
   const description = String(req.body?.description || "").trim();
   const size = String(req.body?.size || "").trim();
   const priceHuf = Number(req.body?.priceHuf);
-  const file = requireImageFile(req, res);
+  const files = requireImageFiles(req, res);
 
-  if (!file) {
+  if (!files) {
     return;
   }
 
@@ -124,13 +180,14 @@ export async function createPremadeModel(req, res) {
     return res.status(400).json({ error: "Valid price is required" });
   }
 
-  const uploadedImage = await uploadImageBuffer(file.buffer, file.originalname, getCloudinaryFolders().premadeItems);
+  const images = await uploadImageFiles(files, getCloudinaryFolders().premadeItems);
   const item = await PremadeModel.create({
     title,
     description,
     priceHuf,
     size,
-    image: buildImagePayload(file, uploadedImage),
+    image: images[0],
+    images,
   });
 
   return res.status(201).json({ item: serializePremadeModel(item) });
@@ -149,7 +206,7 @@ export async function deletePremadeModel(req, res) {
     return res.status(404).json({ error: "Model not found" });
   }
 
-  await deleteUploadedFile(item.image?.publicId, item.image?.resourceType || "image");
+  await deleteItemImages(item);
   await item.deleteOne();
 
   return res.status(204).send();

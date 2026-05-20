@@ -7,7 +7,7 @@ const features = [
   {
     title: "Egyedi alkatrészek",
     text: "Kis szériás gyártás, méretre igazítás és használatra kész tárgyak.",
-    img: "/Egyedi__alkatrészek.png",
+    img: "/Egyedi__alkatrészek_cutout.png",
   },
   {
     title: "Online kalkulátor",
@@ -25,7 +25,7 @@ export default function Features() {
   return (
     <section
       id="features"
-      className="relative isolate overflow-hidden py-14 [clip-path:inset(0)] md:py-20"
+      className="relative isolate overflow-hidden pt-12 pb-14 [clip-path:inset(0)] md:pt-12 md:pb-20"
     >
       <img
         src="/last_refined.png"

@@ -3,22 +3,29 @@ import { useQuery } from "@tanstack/react-query";
 import { FILAMENT_ORDER } from "../lib/modelAnalysis";
 import { api } from "../lib/api";
 import { clampQuantity, formatPremadeCurrency, MAX_PRINT_QUANTITY } from "../lib/premadeModels";
+import CardImageCarousel from "./CardImageCarousel";
 
 export function PremadeModelCard({ model, isSelected = false, onSelect }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(model)}
+    <article
       className={[
         "neon-card flex h-full flex-col overflow-hidden rounded-lg text-left transition",
         isSelected
           ? "border-sky-300 shadow-[0_0_28px_rgba(56,189,248,0.22)]"
           : "hover:border-sky-300",
       ].join(" ")}
-      aria-pressed={isSelected}
     >
-      <img src={model.imageUrl} alt={model.title} className="h-56 w-full object-cover" />
-      <span className="flex flex-1 flex-col p-5">
+      <CardImageCarousel
+        images={model.images?.length ? model.images : [{ src: model.imageUrl, alt: model.title }]}
+        title={model.title}
+        className="h-56 w-full"
+      />
+      <button
+        type="button"
+        onClick={() => onSelect(model)}
+        className="flex flex-1 flex-col p-5 text-left"
+        aria-pressed={isSelected}
+      >
         <span className="text-xl font-semibold text-sky-100">{model.title}</span>
         <span className="mt-3 flex-1 text-sm leading-relaxed text-slate-400">
           {model.description}
@@ -42,8 +49,8 @@ export function PremadeModelCard({ model, isSelected = false, onSelect }) {
         <span className="mt-5 inline-flex font-semibold text-sky-100">
           {isSelected ? "Kiválasztva" : "Ajánlatkérés ehhez"}
         </span>
-      </span>
-    </button>
+      </button>
+    </article>
   );
 }
 

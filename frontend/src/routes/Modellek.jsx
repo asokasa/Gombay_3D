@@ -19,7 +19,7 @@ export default function Modellek() {
     <div className="neon-page flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-grow">
-        <section className="px-4 py-14 md:py-20">
+        <section className="px-4 pt-14 pb-12 md:pt-20 md:pb-12">
           <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[1.05fr_0.95fr] md:items-center">
             <div>
               <p className="neon-kicker">Modellek</p>
@@ -31,15 +31,17 @@ export default function Modellek() {
                 szerint finomhangolunk a felhasználáshoz.
               </p>
             </div>
-            <div className="neon-panel overflow-hidden rounded-lg">
+            <div className="overflow-hidden rounded-lg">
               <img
-                src="/nagyobb_nyomtato.png"
-                alt="3D nyomtató munka közben"
-                className="h-72 w-full object-cover"
+                src="/dog_for_modellek.png"
+                alt="3D nyomtatott kutya modell"
+                className="h-[25.6rem] w-full object-contain"
               />
             </div>
           </div>
         </section>
+
+        <div className="home-blur-divider mx-auto mb-12 w-3/4 rounded-full" aria-hidden="true" />
 
         <section className="px-4 pb-16 md:pb-20">
           <div className="mx-auto max-w-6xl space-y-8">

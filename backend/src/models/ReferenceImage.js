@@ -1,5 +1,20 @@
 import mongoose from "mongoose";
 
+const uploadedImageSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    publicId: { type: String, required: true },
+    originalName: { type: String, default: "" },
+    mimeType: { type: String, default: "" },
+    sizeBytes: { type: Number, default: 0 },
+    width: { type: Number, default: null },
+    height: { type: Number, default: null },
+    format: { type: String, default: "" },
+    resourceType: { type: String, default: "image" },
+  },
+  { _id: false },
+);
+
 const referenceImageSchema = new mongoose.Schema(
   {
     title: {
@@ -8,16 +23,14 @@ const referenceImageSchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
-    image: {
-      url: { type: String, required: true },
-      publicId: { type: String, required: true },
-      originalName: { type: String, default: "" },
-      mimeType: { type: String, default: "" },
-      sizeBytes: { type: Number, default: 0 },
-      width: { type: Number, default: null },
-      height: { type: Number, default: null },
-      format: { type: String, default: "" },
-      resourceType: { type: String, default: "image" },
+    image: uploadedImageSchema,
+    images: {
+      type: [uploadedImageSchema],
+      default: [],
+      validate: {
+        validator: (images) => images.length <= 3,
+        message: "You can upload up to 3 images",
+      },
     },
   },
   { timestamps: true },

@@ -55,13 +55,41 @@ export function formatPremadeCurrency(value) {
   }).format(Math.round(Number(value)));
 }
 
+function normalizePremadeImages(model, title) {
+  const sourceImages =
+    Array.isArray(model.images) && model.images.length > 0
+      ? model.images
+      : model.image
+        ? [model.image]
+        : [];
+
+  return sourceImages
+    .map((image, index) => {
+      const src = typeof image === "string" ? image : image.url || image.src;
+
+      return {
+        id:
+          typeof image === "string"
+            ? `${src}-${index}`
+            : image.publicId || image.url || image.src || `${title}-${index}`,
+        src,
+        alt: title,
+      };
+    })
+    .filter((image) => image.src);
+}
+
 export function normalizePremadeModel(model, fallbackId) {
-  const imageUrl = typeof model.image === "string" ? model.image : model.image?.url;
+  const title = model.title || "Kész modell";
+  const images = normalizePremadeImages(model, title);
+  const imageUrl = images[0]?.src;
+
   return {
     id: model.id || fallbackId || model.title,
-    title: model.title || "Kész modell",
+    title,
     description: model.description || "",
     image: model.image,
+    images,
     imageUrl: imageUrl || "/background.jpg",
     priceHuf: Number(model.priceHuf),
     size: model.size || "",
