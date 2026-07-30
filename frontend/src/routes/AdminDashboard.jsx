@@ -29,6 +29,7 @@ const STATUS_CLASSES = {
 };
 
 const EMPTY_FILAMENT_FORM = {
+  available: true,
   key: "",
   label: "",
   description: "",
@@ -88,6 +89,7 @@ const CALCULATOR_SETTING_FIELDS = [
 ];
 
 const ADMIN_ERROR_MESSAGES = {
+  "At least one material type is required": "Jelolj meg legalabb egy anyagtipust.",
   "You can upload up to 3 images": "Legfeljebb 3 képet tölthetsz fel egy elemhez.",
   "Failed to fetch": "Nem sikerült kapcsolódni a szerverhez.",
   "Authorization token missing": "Hiányzik a bejelentkezési token.",
@@ -180,6 +182,7 @@ function formatDimensions(values) {
 
 function buildFilamentPayload(form) {
   return {
+    available: form.available !== false,
     key: form.key.trim(),
     label: form.label.trim(),
     description: form.description.trim(),
@@ -193,6 +196,7 @@ function buildFilamentPayload(form) {
       .map((color) => ({
         name: color.name.trim(),
         hex: color.hex.trim(),
+        available: color.available !== false,
       }))
       .filter((color) => color.name && color.hex),
   };
@@ -329,8 +333,8 @@ function FilamentManager({ token, enabled }) {
   const [filamentForm, setFilamentForm] = useState(EMPTY_FILAMENT_FORM);
 
   const filamentsQuery = useQuery({
-    queryKey: ["filaments"],
-    queryFn: () => api("/filaments"),
+    queryKey: ["admin-filaments", token],
+    queryFn: () => api("/admin/filaments", { token }),
     enabled,
     retry: false,
   });
@@ -347,6 +351,7 @@ function FilamentManager({ token, enabled }) {
     onSuccess: () => {
       setFilamentForm(EMPTY_FILAMENT_FORM);
       queryClient.invalidateQueries({ queryKey: ["filaments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-filaments", token] });
     },
   });
 
@@ -361,6 +366,7 @@ function FilamentManager({ token, enabled }) {
       setEditingId("");
       setFilamentForm(EMPTY_FILAMENT_FORM);
       queryClient.invalidateQueries({ queryKey: ["filaments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-filaments", token] });
     },
   });
 
@@ -372,6 +378,7 @@ function FilamentManager({ token, enabled }) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["filaments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-filaments", token] });
     },
   });
 
@@ -394,7 +401,7 @@ function FilamentManager({ token, enabled }) {
   function handleAddColor() {
     setFilamentForm((current) => ({
       ...current,
-      colors: [...current.colors, { name: "", hex: "#ffffff" }],
+      colors: [...current.colors, { name: "", hex: "#ffffff", available: true }],
     }));
   }
 
@@ -408,6 +415,7 @@ function FilamentManager({ token, enabled }) {
   function handleEditFilament(item) {
     setEditingId(item.id);
     setFilamentForm({
+      available: item.available !== false,
       key: item.key || "",
       label: item.label || "",
       description: item.description || "",
@@ -417,7 +425,9 @@ function FilamentManager({ token, enabled }) {
       machineMultiplier: String(item.machineMultiplier ?? "1"),
       priceHufPerGram: String(item.priceHufPerGram ?? "30"),
       sortOrder: String(item.sortOrder ?? "0"),
-      colors: item.colors?.length ? item.colors : [{ name: "", hex: "#ffffff" }],
+      colors: item.colors?.length
+        ? item.colors.map((color) => ({ ...color, available: color.available !== false }))
+        : [{ name: "", hex: "#ffffff", available: true }],
     });
   }
 
@@ -488,6 +498,18 @@ function FilamentManager({ token, enabled }) {
             />
           </label>
         </div>
+
+        <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <input
+            type="checkbox"
+            checked={filamentForm.available !== false}
+            onChange={(event) =>
+              setFilamentForm((value) => ({ ...value, available: event.target.checked }))
+            }
+            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+          />
+          AnyagtÃ­pus jelenleg elÃ©rhetÅ‘ az oldalon
+        </label>
 
         <label className="block text-sm font-medium text-slate-700">
           Leírás
@@ -610,7 +632,9 @@ function FilamentManager({ token, enabled }) {
             {filamentForm.colors.map((color, index) => (
               <div
                 key={index}
-                className="grid gap-2 sm:grid-cols-[auto_1fr_8rem_auto] sm:items-center"
+                className={`grid gap-2 rounded-md p-2 sm:grid-cols-[auto_1fr_8rem_auto_auto] sm:items-center ${
+                  color.available === false ? "bg-slate-100 opacity-70" : ""
+                }`}
               >
                 <input
                   type="color"
@@ -634,6 +658,17 @@ function FilamentManager({ token, enabled }) {
                   pattern="#(?:[0-9a-fA-F]{3}){1,2}"
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-sky-500"
                 />
+                <label className="inline-flex items-center gap-2 whitespace-nowrap text-xs font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={color.available !== false}
+                    onChange={(event) =>
+                      handleColorChange(index, { available: event.target.checked })
+                    }
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  ElÃ©rhetÅ‘
+                </label>
                 <button
                   type="button"
                   onClick={() => handleRemoveColor(index)}
@@ -687,7 +722,12 @@ function FilamentManager({ token, enabled }) {
 
       <div className="mt-5 grid gap-3 lg:grid-cols-2">
         {filaments.map((item) => (
-          <article key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <article
+            key={item.id}
+            className={`rounded-lg border border-slate-200 bg-slate-50 p-4 ${
+              item.available === false ? "opacity-65" : ""
+            }`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-slate-900">
@@ -696,6 +736,9 @@ function FilamentManager({ token, enabled }) {
                 <p className="mt-1 text-xs text-slate-600">
                   {formatCurrency(item.priceHufPerGram)} / g · sűrűség {item.density}
                 </p>
+                {item.available === false ? (
+                  <p className="mt-1 text-xs font-semibold text-red-600">Jelenleg nem elerheto</p>
+                ) : null}
                 {item.description ? (
                   <p className="mt-2 text-xs text-slate-600">{item.description}</p>
                 ) : null}
@@ -734,6 +777,7 @@ function FilamentManager({ token, enabled }) {
                       style={{ backgroundColor: color.hex }}
                     />
                     {color.name}
+                    {color.available === false ? " · nincs jelenleg" : ""}
                   </span>
                 ))}
               </div>
@@ -762,6 +806,7 @@ export default function AdminDashboard() {
     priceHuf: "",
     size: "",
     images: [],
+    availableMaterialKeys: null,
   });
   const [referenceFileInputKey, setReferenceFileInputKey] = useState(0);
   const [modelFileInputKey, setModelFileInputKey] = useState(0);
@@ -793,6 +838,23 @@ export default function AdminDashboard() {
     enabled: Boolean(token && meQuery.isSuccess),
     retry: false,
   });
+
+  const adminFilamentsQuery = useQuery({
+    queryKey: ["admin-filaments", token],
+    queryFn: () => api("/admin/filaments", { token }),
+    enabled: Boolean(token && meQuery.isSuccess),
+    retry: false,
+  });
+
+  useEffect(() => {
+    const keys = (adminFilamentsQuery.data?.items ?? [])
+      .filter((item) => item.available !== false)
+      .map((item) => item.key);
+
+    if (keys.length && modelForm.availableMaterialKeys === null) {
+      setModelForm((current) => ({ ...current, availableMaterialKeys: keys }));
+    }
+  }, [adminFilamentsQuery.data, modelForm.availableMaterialKeys]);
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }) =>
@@ -856,6 +918,7 @@ export default function AdminDashboard() {
       body.append("description", payload.description);
       body.append("priceHuf", payload.priceHuf);
       body.append("size", payload.size);
+      body.append("availableMaterialKeys", JSON.stringify(payload.availableMaterialKeys));
       payload.images.forEach((image) => {
         body.append("images", image);
       });
@@ -867,7 +930,14 @@ export default function AdminDashboard() {
       });
     },
     onSuccess: () => {
-      setModelForm({ title: "", description: "", priceHuf: "", size: "", images: [] });
+      setModelForm({
+        title: "",
+        description: "",
+        priceHuf: "",
+        size: "",
+        images: [],
+        availableMaterialKeys: null,
+      });
       setModelFileInputKey((value) => value + 1);
       queryClient.invalidateQueries({ queryKey: ["premade-models"] });
     },
@@ -909,6 +979,10 @@ export default function AdminDashboard() {
   const quoteRequests = quoteRequestsQuery.data?.items ?? [];
   const referenceImages = referenceImagesQuery.data?.items ?? [];
   const premadeModels = premadeModelsQuery.data?.items ?? [];
+  const adminFilaments = adminFilamentsQuery.data?.items ?? [];
+  const activeAdminFilaments = adminFilaments.filter((item) => item.available !== false);
+  const selectedModelMaterialKeys =
+    modelForm.availableMaterialKeys ?? activeAdminFilaments.map((item) => item.key);
   const visibleQuoteRequests = quoteRequests.filter((item) => {
     if (filter === "active") {
       return item.status !== "archived";
@@ -979,7 +1053,8 @@ export default function AdminDashboard() {
       !modelForm.description.trim() ||
       !modelForm.priceHuf ||
       !modelForm.size.trim() ||
-      !modelForm.images.length
+      !modelForm.images.length ||
+      !modelForm.availableMaterialKeys?.length
     ) {
       return;
     }
@@ -1315,6 +1390,60 @@ export default function AdminDashboard() {
                   />
                 </label>
               </div>
+              <fieldset className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <legend className="px-1 text-sm font-semibold text-slate-700">
+                  KÃ©rhetÅ‘ anyagtÃ­pusok
+                </legend>
+                <p className="mt-1 text-xs text-slate-500">
+                  Csak a bejelÃ¶lt anyagok jelennek meg ennÃ©l a kÃ©sz modellnÃ©l.
+                </p>
+                {adminFilamentsQuery.isError ? (
+                  <p className="mt-2 text-xs text-red-600">
+                    Az anyaglista nem tÃ¶lthetÅ‘ be, ezÃ©rt a modell feltÃ¶ltÃ©se elÅ‘tt prÃ³bÃ¡ld Ãºjra.
+                  </p>
+                ) : null}
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {activeAdminFilaments.map((material) => {
+                    const isSelected = selectedModelMaterialKeys.includes(material.key);
+                    return (
+                      <label
+                        key={material.key}
+                        className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                          isSelected
+                            ? "border-sky-300 bg-sky-100 text-sky-900"
+                            : "border-slate-200 bg-white text-slate-600"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(event) =>
+                            setModelForm((current) => {
+                              const currentKeys =
+                                current.availableMaterialKeys ??
+                                activeAdminFilaments.map((item) => item.key);
+                              const nextKeys = event.target.checked
+                                ? [...new Set([...currentKeys, material.key])]
+                                : currentKeys.filter((key) => key !== material.key);
+                              return { ...current, availableMaterialKeys: nextKeys };
+                            })
+                          }
+                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        {material.label}
+                      </label>
+                    );
+                  })}
+                </div>
+                {!adminFilamentsQuery.isLoading && !activeAdminFilaments.length ? (
+                  <p className="mt-2 text-xs text-slate-500">Nincs beÃ¡llÃ­tott anyagtÃ­pus.</p>
+                ) : null}
+                {!selectedModelMaterialKeys.length ? (
+                  <p className="mt-2 text-xs font-semibold text-red-600">
+                    JelÃ¶lj meg legalÃ¡bb egy anyagtÃ­pust.
+                  </p>
+                ) : null}
+              </fieldset>
               <label className="block text-sm font-medium text-slate-700">
                 Kép
                 <input
@@ -1339,7 +1468,7 @@ export default function AdminDashboard() {
               </label>
               <button
                 type="submit"
-                disabled={createModelMutation.isPending}
+                disabled={createModelMutation.isPending || !modelForm.availableMaterialKeys?.length}
                 className="neon-button rounded-md px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {createModelMutation.isPending ? "Feltöltés..." : "Modell feltöltése"}

@@ -14,12 +14,20 @@ const filamentColorSchema = new mongoose.Schema(
       trim: true,
       match: /^#(?:[0-9a-fA-F]{3}){1,2}$/,
     },
+    available: {
+      type: Boolean,
+      default: true,
+    },
   },
   { _id: false },
 );
 
 const filamentOptionSchema = new mongoose.Schema(
   {
+    available: {
+      type: Boolean,
+      default: true,
+    },
     key: {
       type: String,
       required: true,

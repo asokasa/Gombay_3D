@@ -93,6 +93,9 @@ export function normalizePremadeModel(model, fallbackId) {
     imageUrl: imageUrl || "/background.jpg",
     priceHuf: Number(model.priceHuf),
     size: model.size || "",
+    availableMaterialKeys: Array.isArray(model.availableMaterialKeys)
+      ? model.availableMaterialKeys
+      : null,
   };
 }
 

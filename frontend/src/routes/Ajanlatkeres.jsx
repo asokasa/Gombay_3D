@@ -7,6 +7,7 @@ import { PremadeModelCard, PremadeModelRequestForm } from "../components/Premade
 import { buildPremadeModelList } from "../lib/premadeModels";
 import {
   FILAMENT_ORDER,
+  PRINT_PROFILES,
   PRINT_PROFILE_ORDER,
   MAX_DIMENSION_CM,
   MAX_DIMENSION_MM,
@@ -43,12 +44,6 @@ const FIT_EDGE_COLOR = "#00b85f";
 const FIT_EDGE_GLOW_COLOR = "#28ff8f";
 const FAIL_EDGE_COLOR = "#ff3355";
 const DEFAULT_MODEL_ROTATION = { x: 0, y: 0, z: 0 };
-const SIZE_AXIS_LABELS = [
-  ["x", "X"],
-  ["y", "Y"],
-  ["z", "Z"],
-];
-const ROTATION_AXIS_LABELS = SIZE_AXIS_LABELS;
 
 function getRotatedBoundsInfoCm(sizeCm = [], rotationDegrees = DEFAULT_MODEL_ROTATION) {
   const [x = 0, y = 0, z = 0] = sizeCm;
@@ -108,23 +103,12 @@ function getFitsBuildVolume(sizeCm = []) {
   return BUILD_VOLUME_CM.every((limit, index) => (Number(sizeCm[index]) || 0) <= limit + 0.001);
 }
 
-function getInitialScalePercent(analysisResult) {
-  const recommendedScale = analysisResult?.autoScale?.recommendedScale;
-  const scale = Number.isFinite(recommendedScale) && recommendedScale > 0 ? recommendedScale : 1;
-  return Math.round(Math.min(2, Math.max(0.05, scale)) * 100);
-}
-
 function clampNumber(value, min, max, fallback) {
   const parsed = Number(String(value).replace(",", "."));
   if (!Number.isFinite(parsed)) {
     return fallback;
   }
   return Math.min(max, Math.max(min, parsed));
-}
-
-function getInitialSizeCm(analysisResult) {
-  const scale = getInitialScalePercent(analysisResult) / 100;
-  return (analysisResult?.sizeCm ?? []).map((value) => Number(value) * scale);
 }
 
 function getBestPrintableRotation(sizeCm = []) {
@@ -152,53 +136,6 @@ function getAxisScaleFactors(originalSizeCm = [], targetSizeCm = []) {
     }
     return Math.max(0.001, target / original);
   });
-}
-
-function getAverageScalePercent(originalSizeCm = [], targetSizeCm = []) {
-  const scaleFactors = getAxisScaleFactors(originalSizeCm, targetSizeCm);
-  const averageScale = scaleFactors.reduce((sum, value) => sum + value, 0) / scaleFactors.length;
-  return Math.round(Math.min(2, Math.max(0.05, averageScale)) * 100);
-}
-
-function resizeAnalysisForModel(analysis, targetSizeCm) {
-  if (!analysis || !targetSizeCm?.length) {
-    return analysis;
-  }
-
-  const scaleFactors = getAxisScaleFactors(analysis.sizeCm, targetSizeCm);
-  const [scaleX, scaleY, scaleZ] = scaleFactors;
-  const volumeScale = scaleX * scaleY * scaleZ;
-  const surfaceScale = (scaleX * scaleY + scaleX * scaleZ + scaleY * scaleZ) / 3;
-  const sizeMm = targetSizeCm.map((value) => value * 10);
-
-  return {
-    ...analysis,
-    sizeCm: targetSizeCm,
-    sizeMm,
-    volumeCm3: Number.isFinite(analysis.volumeCm3) ? analysis.volumeCm3 * volumeScale : 0,
-    volumeMm3: Number.isFinite(analysis.volumeMm3) ? analysis.volumeMm3 * volumeScale : 0,
-    surfaceAreaCm2: Number.isFinite(analysis.surfaceAreaCm2)
-      ? analysis.surfaceAreaCm2 * surfaceScale
-      : analysis.surfaceAreaCm2,
-    surfaceAreaMm2: Number.isFinite(analysis.surfaceAreaMm2)
-      ? analysis.surfaceAreaMm2 * surfaceScale
-      : analysis.surfaceAreaMm2,
-    autoScale: {
-      ...(analysis.autoScale ?? {}),
-      recommendedScale: 1,
-      maxAllowableScale: getFitsBuildVolume(targetSizeCm)
-        ? 1
-        : Math.min(
-            ...targetSizeCm.map((value, index) => BUILD_VOLUME_CM[index] / Math.max(0.001, value))
-          ),
-      scaledSizeCm: targetSizeCm,
-    },
-    resize: {
-      originalSizeCm: analysis.sizeCm,
-      targetSizeCm,
-      scaleFactors,
-    },
-  };
 }
 
 function CameraControls({ targetY = 0 }) {
@@ -476,17 +413,12 @@ function ModelPreview({
   );
 }
 
-const UNIT_PRESETS = [
-  { value: "mm", label: "Milliméter (mm)", toMillimeter: 1 },
-  { value: "cm", label: "Centiméter (cm)", toMillimeter: 10 },
-  { value: "m", label: "Méter (m)", toMillimeter: 1000 },
-  { value: "inch", label: "Hüvelyk (inch)", toMillimeter: 25.4 },
-];
-
-const INFILL_PERCENT_OPTIONS = Array.from({ length: 21 }, (_item, index) => index * 5);
-const DEFAULT_INFILL_PERCENT = 20;
+const FIXED_INFILL_PERCENT = 20;
 const DEFAULT_PRINT_PROFILE_KEY = PRINT_PROFILE_ORDER[0].key;
 const MAX_PRINT_QUANTITY = 999;
+const PRINT_PROFILE_DESCRIPTIONS = {
+  [PRINT_PROFILES.DETAIL.key]: "Finomabb rétegek, lassabb gyártási idővel.",
+};
 
 function formatNumber(value, fractionDigits = 2) {
   if (!Number.isFinite(value)) {
@@ -516,32 +448,12 @@ function formatMass(value) {
   return `${formatNumber(value, 1)} g`;
 }
 
-function formatPrintTime(hours) {
-  if (!Number.isFinite(hours)) {
-    return "-";
-  }
-  const totalMinutes = Math.max(1, Math.round(hours * 60));
-  const hourValue = Math.floor(totalMinutes / 60);
-  const minuteValue = totalMinutes % 60;
-  if (!hourValue) {
-    return `${minuteValue} perc`;
-  }
-  return minuteValue ? `${hourValue} óra ${minuteValue} perc` : `${hourValue} óra`;
-}
-
 function formatDimensionArray(values, unit = "cm") {
   if (!values?.length) {
     return "-";
   }
   const fractionDigits = unit === "mm" ? 0 : 2;
   return values.map((value) => `${formatNumber(value, fractionDigits)} ${unit}`).join(" x ");
-}
-
-function formatPercentage(value) {
-  if (!Number.isFinite(value)) {
-    return "-";
-  }
-  return `${formatNumber(value, 1)}%`;
 }
 
 function PremadeModelCatalog({ onBack }) {
@@ -644,15 +556,10 @@ function QuoteTypeChooser({ onSelect }) {
 function QuoteCalculator() {
   const [file, setFile] = useState(null);
   const [analysis, setAnalysis] = useState(null);
-  const [baseAnalysis, setBaseAnalysis] = useState(null);
-  const [unitOverride, setUnitOverride] = useState("auto");
   const [selectedFilament, setSelectedFilament] = useState(FILAMENT_ORDER[0].key);
   const [selectedColorHex, setSelectedColorHex] = useState("");
   const [selectedPrintProfileKey, setSelectedPrintProfileKey] = useState(DEFAULT_PRINT_PROFILE_KEY);
-  const [selectedInfillPercent, setSelectedInfillPercent] = useState(DEFAULT_INFILL_PERCENT);
   const [printQuantity, setPrintQuantity] = useState(1);
-  const [modelScalePercent, setModelScalePercent] = useState(100);
-  const [modelSizeCm, setModelSizeCm] = useState(null);
   const [modelRotation, setModelRotation] = useState(DEFAULT_MODEL_ROTATION);
   const [status, setStatus] = useState({ type: "info", message: "" });
   const [loading, setLoading] = useState(false);
@@ -723,24 +630,12 @@ function QuoteCalculator() {
     }
   }, [colorOptions, selectedColorHex]);
 
-  const modelScale = Math.max(0.05, modelScalePercent / 100);
-  const activeModelSizeCm = useMemo(() => {
-    if (modelSizeCm?.length) {
-      return modelSizeCm;
-    }
-    if (!analysis?.sizeCm?.length) {
-      return null;
-    }
-    return analysis.sizeCm.map((value) => value * modelScale);
-  }, [analysis, modelScale, modelSizeCm]);
+  const activeModelSizeCm = analysis?.sizeCm ?? null;
   const axisScaleFactors = useMemo(
     () => getAxisScaleFactors(analysis?.sizeCm ?? [], activeModelSizeCm ?? []),
     [activeModelSizeCm, analysis]
   );
-  const resizedAnalysis = useMemo(
-    () => resizeAnalysisForModel(analysis, activeModelSizeCm),
-    [activeModelSizeCm, analysis]
-  );
+  const resizedAnalysis = analysis;
   const rotatedModelSizeCm = useMemo(
     () => getRotatedBoundsCm(activeModelSizeCm ?? [], modelRotation),
     [activeModelSizeCm, modelRotation]
@@ -759,13 +654,18 @@ function QuoteCalculator() {
       filamentKey: selectedFilament,
       filament: selectedMaterial,
       calculatorSettings: calculatorSettingsQuery.data?.item ?? DEFAULT_CALCULATOR_SETTINGS,
-      infillPercent: selectedInfillPercent,
-      printProfileKey: selectedPrintProfileKey,
+      infillPercent: FIXED_INFILL_PERCENT,
+      printProfileKey: DEFAULT_PRINT_PROFILE_KEY,
       quantity: printQuantity,
       scale: 1,
     });
+    const selectedPrintProfile =
+      PRINT_PROFILE_ORDER.find((profile) => profile.key === selectedPrintProfileKey) ??
+      PRINT_PROFILE_ORDER[0];
     return {
       ...calculatedQuote,
+      printProfile: selectedPrintProfile,
+      printProfileKey: selectedPrintProfile.key,
       axisScaleFactors,
       buildVolumeCm: BUILD_VOLUME_CM,
       fitsPrinter: fitsBuildVolume,
@@ -781,7 +681,6 @@ function QuoteCalculator() {
     resizedAnalysis,
     rotatedModelSizeCm,
     selectedFilament,
-    selectedInfillPercent,
     selectedMaterial,
     selectedPrintProfileKey,
   ]);
@@ -796,10 +695,7 @@ function QuoteCalculator() {
     return null;
   }, [analysis, quote]);
 
-  const detectedUnitLabel = baseAnalysis?.detectedUnit ?? analysis?.detectedUnit ?? "";
-
   const rawDimensionsText = formatDimensionArray(analysis?.sizeCm);
-  const scaledDimensionsText = formatDimensionArray(scaledSizeCm);
   const hasWarnings = Boolean(analysis?.warnings?.length);
   const canSubmit = Boolean(
     file && analysis && quote && !loading && !sending && (!colorOptions.length || selectedColor)
@@ -816,11 +712,8 @@ function QuoteCalculator() {
     analysisRequestIdRef.current = requestId;
     const selectedFile = event.target.files?.[0];
     setAnalysis(null);
-    setBaseAnalysis(null);
-    setUnitOverride("auto");
     if (!selectedFile) {
       setFile(null);
-      setModelSizeCm(null);
       clearFileInput();
       setStatus({ type: "info", message: "" });
       return;
@@ -831,7 +724,6 @@ function QuoteCalculator() {
         message: "Legfeljebb 50 MB méretű fájl tölthető fel.",
       });
       setFile(null);
-      setModelSizeCm(null);
       clearFileInput();
       return;
     }
@@ -843,29 +735,20 @@ function QuoteCalculator() {
         return;
       }
       setFile(selectedFile);
-      setBaseAnalysis(result);
       setAnalysis(result);
-      setModelScalePercent(getInitialScalePercent(result));
-      setModelSizeCm(getInitialSizeCm(result));
       setModelRotation(getBestPrintableRotation(result.sizeCm));
       const messageParts = ["A fájl sikeresen ellenőrizve."];
       const recommendedScale = result.autoScale?.recommendedScale;
       if (Number.isFinite(recommendedScale) && recommendedScale < 1) {
         messageParts.push(
-          `A modell nagyobb a ${formatDimensionArray(
-            BUILD_VOLUME_MM,
-            "mm"
-          )}-es nyomtatási térnél, ${formatNumber(
-            recommendedScale * 100,
-            0
-          )}% méretarányt használ az árbecslés. Jelezd az üzenetben, ha más méretet szeretnél.`
+           `A modell nagyobb a ${formatDimensionArray(
+             BUILD_VOLUME_MM,
+             "mm"
+           )}-es nyomtatási térnél. Ez nem akadály: írj nekünk e-mailben, és egyeztetjük a megfelelő megoldást.`
         );
       }
       if (result.warnings?.length) {
         messageParts.push("Ellenőrizd a lenti figyelmeztetéseket a gyártás előtt.");
-      }
-      if (result.detectedUnit) {
-        messageParts.push(`Feltételezett egység: ${result.detectedUnit}.`);
       }
       setStatus({
         type: result.warnings?.length ? "warning" : "success",
@@ -875,8 +758,6 @@ function QuoteCalculator() {
       console.error(error);
       setFile(null);
       setAnalysis(null);
-      setBaseAnalysis(null);
-      setModelSizeCm(null);
       clearFileInput();
       setStatus({
         type: "error",
@@ -892,115 +773,9 @@ function QuoteCalculator() {
     }
   }
 
-  async function handleUnitOverrideChange(event) {
-    const requestId = analysisRequestIdRef.current + 1;
-    analysisRequestIdRef.current = requestId;
-    const { value } = event.target;
-    setUnitOverride(value);
-    if (!file) {
-      return;
-    }
-    if (value === "auto") {
-      if (baseAnalysis) {
-        setAnalysis(baseAnalysis);
-        setModelScalePercent(getInitialScalePercent(baseAnalysis));
-        setModelSizeCm(getInitialSizeCm(baseAnalysis));
-        setModelRotation(getBestPrintableRotation(baseAnalysis.sizeCm));
-        const messageParts = ["Automatikus egységfelismerés alkalmazva."];
-        if (baseAnalysis.detectedUnit) {
-          messageParts.push(`Feltételezett egység: ${baseAnalysis.detectedUnit}.`);
-        }
-        if (baseAnalysis.warnings?.length) {
-          messageParts.push("Ellenőrizd a lenti figyelmeztetéseket a gyártás előtt.");
-        }
-        setStatus({
-          type: baseAnalysis.warnings?.length ? "warning" : "success",
-          message: messageParts.join(" "),
-        });
-      }
-      return;
-    }
-
-    const preset = UNIT_PRESETS.find((item) => item.value === value);
-    if (!preset) {
-      return;
-    }
-
-    setLoading(true);
-    setStatus({
-      type: "info",
-      message: `${preset.label} feltételezésével újraértékeljük a modellt...`,
-    });
-
-    try {
-      const result = await analyze3DFile(file, { unitOverride: preset });
-      if (requestId !== analysisRequestIdRef.current) {
-        return;
-      }
-      setAnalysis(result);
-      setModelScalePercent(getInitialScalePercent(result));
-      setModelSizeCm(getInitialSizeCm(result));
-      setModelRotation(getBestPrintableRotation(result.sizeCm));
-      const messageParts = [`${preset.label} feltételezésével újraértékeltük a modellt.`];
-      if (result.autoScale?.recommendedScale < 1) {
-        messageParts.push(
-          `A modell nagyobb a ${formatDimensionArray(
-            BUILD_VOLUME_MM,
-            "mm"
-          )}-es nyomtatási térnél, ${formatNumber(
-            result.autoScale.recommendedScale * 100,
-            0
-          )}% méretarányt használ az árbecslés.`
-        );
-      }
-      if (result.warnings?.length) {
-        messageParts.push("Ellenőrizd a lenti figyelmeztetéseket a gyártás előtt.");
-      }
-      setStatus({
-        type: result.warnings?.length ? "warning" : "success",
-        message: messageParts.join(" "),
-      });
-    } catch (error) {
-      console.error(error);
-      setStatus({
-        type: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Ismeretlen hiba történt a fájl újraelemzése során.",
-      });
-    } finally {
-      if (requestId === analysisRequestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  }
-
   function handleInputChange(event) {
     const { name, value } = event.target;
     setFormData((previous) => ({ ...previous, [name]: value }));
-  }
-
-  function handleUniformScaleChange(value) {
-    const nextScalePercent = clampNumber(value, 5, 200, modelScalePercent);
-    setModelScalePercent(nextScalePercent);
-    if (analysis?.sizeCm?.length) {
-      const nextScale = nextScalePercent / 100;
-      setModelSizeCm(analysis.sizeCm.map((dimension) => dimension * nextScale));
-    }
-  }
-
-  function handleModelSizeChange(axisIndex, value) {
-    const currentSize = activeModelSizeCm?.length
-      ? activeModelSizeCm
-      : analysis?.sizeCm?.length
-        ? analysis.sizeCm
-        : [1, 1, 1];
-    const nextSize = currentSize.map((dimension, index) =>
-      index === axisIndex ? clampNumber(value, 0.1, 200, dimension) : dimension
-    );
-    setModelSizeCm(nextSize);
-    setModelScalePercent(getAverageScalePercent(analysis?.sizeCm ?? [], nextSize));
   }
 
   function handlePrintQuantityChange(value) {
@@ -1049,8 +824,6 @@ function QuoteCalculator() {
     payload.append("analysis", JSON.stringify(analysis));
     payload.append("quote", JSON.stringify(quote));
     payload.append("scaledSizeCm", JSON.stringify(scaledSizeCm ?? []));
-    payload.append("unitOverride", unitOverride);
-    payload.append("detectedUnitLabel", detectedUnitLabel);
 
     setSending(true);
     setStatus({
@@ -1073,15 +846,10 @@ function QuoteCalculator() {
       setSelectedFilament(FILAMENT_ORDER[0].key);
       setSelectedColorHex("");
       setSelectedPrintProfileKey(DEFAULT_PRINT_PROFILE_KEY);
-      setSelectedInfillPercent(DEFAULT_INFILL_PERCENT);
       setPrintQuantity(1);
-      setModelScalePercent(100);
-      setModelSizeCm(null);
       setModelRotation(DEFAULT_MODEL_ROTATION);
-      setUnitOverride("auto");
       setFile(null);
       setAnalysis(null);
-      setBaseAnalysis(null);
       analysisRequestIdRef.current += 1;
       clearFileInput();
     } catch (error) {
@@ -1171,94 +939,10 @@ function QuoteCalculator() {
                 </span>
               </div>
 
-              <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                <label className="flex flex-col text-sm font-semibold text-sky-900">
-                  Méretarány: {modelScalePercent}%
-                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_6rem] sm:items-center">
-                    <input
-                      type="range"
-                      min="5"
-                      max="200"
-                      step="1"
-                      value={modelScalePercent}
-                      onChange={(event) => handleUniformScaleChange(event.target.value)}
-                      disabled={loading || sending}
-                    />
-                    <input
-                      type="number"
-                      min="5"
-                      max="200"
-                      step="1"
-                      value={modelScalePercent}
-                      onChange={(event) => handleUniformScaleChange(event.target.value)}
-                      disabled={loading || sending}
-                      className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
-                      aria-label="Méretarány százalékban"
-                    />
-                  </div>
-                  <span className="mt-1 text-xs font-normal text-slate-500">
-                    Húzd kisebbre vagy nagyobbra a modellt a nyomtatási térben.
-                  </span>
-                </label>
-
-                <div>
-                  <p className="text-sm font-semibold text-sky-900">Méret tengelyenként</p>
-                  <div className="mt-2 grid gap-3 sm:grid-cols-3">
-                    {SIZE_AXIS_LABELS.map((item, index) => {
-                      const label = item[1];
-                      return (
-                        <label
-                          key={label}
-                          className="flex flex-col text-xs font-semibold text-slate-600"
-                        >
-                          {label} méret (cm)
-                          <input
-                            type="number"
-                            min="0.1"
-                            max="200"
-                            step="0.1"
-                            value={(Number(activeModelSizeCm?.[index]) || 0).toFixed(1)}
-                            onChange={(event) => handleModelSizeChange(index, event.target.value)}
-                            disabled={loading || sending}
-                            className="mt-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
-                            aria-label={`${label} tengely mérete centiméterben`}
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-sky-900">Forgatás</p>
-                  <div className="mt-2 grid gap-3 sm:grid-cols-3">
-                    {ROTATION_AXIS_LABELS.map(([axis, label]) => (
-                      <label
-                        key={axis}
-                        className="flex flex-col text-xs font-semibold text-slate-600"
-                      >
-                        {label}: {modelRotation[axis]}°
-                        <input
-                          type="number"
-                          min="-180"
-                          max="180"
-                          step="1"
-                          value={modelRotation[axis]}
-                          onChange={(event) =>
-                            setModelRotation((current) => ({
-                              ...current,
-                              [axis]: clampNumber(event.target.value, -180, 180, current[axis]),
-                            }))
-                          }
-                          disabled={loading || sending}
-                          className="mt-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800"
-                          aria-label={`${label} tengely forgatás fokban`}
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
+               <p className="mt-5 rounded-md border border-sky-200 bg-white/70 p-3 text-sm leading-relaxed text-slate-600">
+                 Ha a modell nagyobb a kijelzett nyomtatási térnél, az sem probléma. Írj nekünk e-mailben,
+                 és egyeztetünk a megfelelő megoldásról – mindenre van megoldás.
+               </p>
             </div>
 
             <div>
@@ -1288,19 +972,24 @@ function QuoteCalculator() {
                         setSelectedColorHex(material.colors?.[0]?.hex ?? "");
                       }}
                       className={[
-                        "flex h-full flex-col rounded-lg border p-4 text-left transition",
-                        isActive
-                          ? "border-sky-400 bg-sky-100/70 shadow"
-                          : "border-slate-200 bg-white/70 hover:border-sky-300 hover:bg-sky-50/60",
+                         "flex h-full flex-col rounded-lg border-2 p-4 text-left transition",
+                         isActive
+                           ? "border-sky-500 bg-sky-200/80 shadow-lg ring-2 ring-sky-300/70"
+                           : "border-slate-200 bg-white/70 hover:border-sky-300 hover:bg-sky-50/60",
                       ].join(" ")}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-base font-semibold text-sky-900">
-                          {material.label}
-                        </span>
-                        <span className="text-xs font-medium text-slate-500">
-                          {material.temperature}
-                        </span>
+                       <div className="flex items-start justify-between gap-2">
+                         <span className="text-base font-semibold text-sky-900">
+                           {material.label}
+                         </span>
+                         <span className="flex flex-col items-end gap-1 text-xs font-medium text-slate-500">
+                           {isActive ? (
+                             <span className="rounded-full bg-sky-600 px-2 py-1 font-bold text-white">
+                               ✓ Kijelölve
+                             </span>
+                           ) : null}
+                           <span>{material.temperature}</span>
+                         </span>
                       </div>
                       <p className="mt-2 text-sm text-slate-600">{material.description}</p>
                       {material.colors?.length ? (
@@ -1330,10 +1019,10 @@ function QuoteCalculator() {
                           type="button"
                           onClick={() => setSelectedColorHex(color.hex)}
                           className={[
-                            "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition",
+                             "inline-flex items-center gap-2 rounded-md border-2 px-3 py-2 text-sm font-semibold transition",
                             isActive
-                              ? "border-sky-300 bg-sky-100/70 text-sky-900 shadow"
-                              : "border-slate-200 bg-white/70 text-slate-700 hover:border-sky-300",
+                               ? "border-emerald-500 bg-emerald-100 text-emerald-900 shadow-md ring-2 ring-emerald-300/70"
+                               : "border-slate-200 bg-white/70 text-slate-700 hover:border-sky-300",
                           ].join(" ")}
                         >
                           <span
@@ -1342,6 +1031,11 @@ function QuoteCalculator() {
                             aria-hidden="true"
                           />
                           {color.name}
+                          {isActive ? (
+                            <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                              ✓
+                            </span>
+                          ) : null}
                         </button>
                       );
                     })}
@@ -1372,40 +1066,18 @@ function QuoteCalculator() {
                           <span className="text-sm font-semibold text-sky-900">
                             {profile.label}
                           </span>
-                          <span className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            {formatNumber(profile.layerHeightMm, 1)} mm réteg
-                          </span>
-                          <span className="mt-2 text-xs leading-relaxed text-slate-600">
-                            {profile.description}
-                          </span>
+                           <span className="mt-2 text-xs leading-relaxed text-slate-600">
+                             {PRINT_PROFILE_DESCRIPTIONS[profile.key] ?? profile.description}
+                           </span>
                         </button>
                       );
                     })}
                   </div>
                 </fieldset>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                  <label className="flex flex-col text-sm font-semibold text-sky-900">
-                    Kitöltés
-                    <select
-                      value={selectedInfillPercent}
-                      onChange={(event) => setSelectedInfillPercent(Number(event.target.value))}
-                      disabled={loading || sending}
-                      className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-medium text-slate-800 shadow-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    >
-                      {INFILL_PERCENT_OPTIONS.map((value) => (
-                        <option key={value} value={value}>
-                          {value}%
-                        </option>
-                      ))}
-                    </select>
-                    <span className="mt-2 text-xs font-normal leading-relaxed text-slate-500">
-                      A legtöbb dísz- és prototípus modellhez a 15-25% körüli érték elég.
-                    </span>
-                  </label>
-
-                  <label className="flex flex-col text-sm font-semibold text-sky-900">
-                    Darabszám
+                 <div className="mt-4">
+                   <label className="flex max-w-xs flex-col text-sm font-semibold text-sky-900">
+                     Darabszám
                     <input
                       type="number"
                       min="1"
@@ -1419,9 +1091,9 @@ function QuoteCalculator() {
                     />
                     <span className="mt-2 text-xs font-normal leading-relaxed text-slate-500">
                       Ugyanebből a modellből ennyi darabot kérsz.
-                    </span>
+                   </span>
                   </label>
-                </div>
+                 </div>
               </div>
             </div>
 
@@ -1435,75 +1107,14 @@ function QuoteCalculator() {
                         <dt className="font-medium text-slate-600">Modell méretei</dt>
                         <dd>{rawDimensionsText}</dd>
                       </div>
-                      {quote.scale !== 1 ? (
-                        <div>
-                          <dt className="font-medium text-slate-600">Nyomtatási méret</dt>
-                          <dd>
-                            {scaledDimensionsText} ({formatPercentage(quote.scale * 100)})
-                          </dd>
-                        </div>
-                      ) : null}
-                      <div>
-                        <dt className="font-medium text-slate-600">Forgatott befoglaló méret</dt>
-                        <dd>{formatDimensionArray(quote.rotatedSizeCm)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium text-slate-600">Darabszám</dt>
-                        <dd>{quote.quantity} db</dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium text-slate-600">Box térfogat / db</dt>
-                        <dd>{formatNumber(quote.scaledVolumeCm3, 2)} cm3</dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium text-slate-600">Anyag térfogata összesen</dt>
-                        <dd>{formatNumber(quote.effectiveVolumeCm3, 2)} cm3</dd>
-                      </div>
-                      {Number.isFinite(quote.scaledSurfaceAreaCm2) ? (
-                        <div>
-                          <dt className="font-medium text-slate-600">Felület</dt>
-                          <dd>{formatNumber(quote.scaledSurfaceAreaCm2, 2)} cm2</dd>
-                        </div>
-                      ) : null}
-                      <div>
-                        <dt className="font-medium text-slate-600">Becsült tömeg összesen</dt>
-                        <dd>{formatMass(quote.massGrams)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium text-slate-600">Nyomtatási idő összesen</dt>
-                        <dd>{formatPrintTime(quote.hours)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium text-slate-600">Fájl egysége</dt>
-                        <dd>
-                          <div className="mt-1 space-y-1">
-                            <select
-                              value={unitOverride}
-                              onChange={handleUnitOverrideChange}
-                              disabled={loading || sending}
-                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                            >
-                              <option value="auto">
-                                Automatikus felismerés
-                                {detectedUnitLabel ? ` (${detectedUnitLabel})` : ""}
-                              </option>
-                              {UNIT_PRESETS.map((preset) => (
-                                <option key={preset.value} value={preset.value}>
-                                  {preset.label}
-                                </option>
-                              ))}
-                            </select>
-                            <p className="text-xs text-slate-500">
-                              Alkalmazott egység: {analysis.rawUnit}
-                            </p>
-                            {detectedUnitLabel ? (
-                              <p className="text-xs text-slate-500">
-                                Automatikusan érzékelt egység: {detectedUnitLabel}
-                              </p>
-                            ) : null}
-                          </div>
-                        </dd>
-                      </div>
+                       <div>
+                         <dt className="font-medium text-slate-600">Darabszám</dt>
+                         <dd>{quote.quantity} db</dd>
+                       </div>
+                       <div>
+                         <dt className="font-medium text-slate-600">Becsült tömeg összesen</dt>
+                         <dd>{formatMass(quote.massGrams)}</dd>
+                       </div>
                     </dl>
                   </div>
 
@@ -1515,19 +1126,12 @@ function QuoteCalculator() {
                         <dd>{selectedMaterial.label}</dd>
                       </div>
                       <div>
-                        <dt className="font-medium text-emerald-700">Rétegvastagság</dt>
-                        <dd>
-                          {quote.printProfile.label},{" "}
-                          {formatNumber(quote.printProfile.layerHeightMm, 1)} mm
-                        </dd>
+                         <dt className="font-medium text-emerald-700">Minőség</dt>
+                         <dd>{quote.printProfile.label}</dd>
                       </div>
                       <div>
                         <dt className="font-medium text-emerald-700">Darabszám</dt>
                         <dd>{quote.quantity} db</dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium text-emerald-700">Kitöltés</dt>
-                        <dd>{formatPercentage(quote.infillPercent ?? selectedInfillPercent)}</dd>
                       </div>
                     </dl>
                     {selectedColor ? (

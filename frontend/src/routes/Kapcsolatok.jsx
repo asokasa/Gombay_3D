@@ -2,17 +2,6 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
 const CONTACT_EMAIL = "Gombay3d@gmail.com";
-const WORKSHOP_ADDRESS = "2119 Pécel, Ady Endre utca 6.";
-const MAP_EMBED_URL =
-  "https://maps.google.com/maps?hl=hu&q=2119%20P%C3%A9cel%2C%20Ady%20Endre%20utca%206&z=16&output=embed";
-
-const offices = [
-  {
-    city: "Pécel műhely",
-    address: WORKSHOP_ADDRESS,
-    phone: "+36 1 200 3344",
-  },
-];
 
 export default function Kapcsolatok() {
   return (
@@ -49,39 +38,6 @@ export default function Kapcsolatok() {
           </div>
         </section>
 
-        <section className="px-4 pb-16 md:pb-20">
-          <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-2 md:items-center">
-            <div>
-              <h2 className="text-2xl font-semibold text-sky-100">Irodánk és műhelyünk</h2>
-              <p className="mt-4 text-sm leading-relaxed text-slate-400">
-                
-              </p>
-              <ul className="mt-6 space-y-4">
-                {offices.map((office) => (
-                  <li key={office.city} className="neon-card p-5">
-                    <h3 className="text-lg font-semibold text-sky-100">{office.city}</h3>
-                    <p className="mt-1 text-sm text-slate-400">{office.address}</p>
-                    <p className="mt-2 text-sm text-sky-200">Telefon: {office.phone}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="neon-panel overflow-hidden rounded-lg">
-              <div className="relative aspect-video w-full bg-[#03050a]">
-                <iframe
-                  title="Gombay 3D térkép"
-                  className="absolute inset-0 h-full w-full"
-                  src={MAP_EMBED_URL}
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
-              
-            </div>
-          </div>
-        </section>
       </main>
       <Footer />
     </div>

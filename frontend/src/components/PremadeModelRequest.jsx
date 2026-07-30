@@ -74,11 +74,20 @@ export function PremadeModelRequestForm({ model, onBack }) {
   });
 
   const filamentOptions = useMemo(() => {
+    let options;
     if (filamentsQuery.isSuccess) {
-      return filamentsQuery.data?.items ?? [];
+      options = filamentsQuery.data?.items ?? [];
+    } else {
+      options = FILAMENT_ORDER;
     }
-    return FILAMENT_ORDER;
-  }, [filamentsQuery.data, filamentsQuery.isSuccess]);
+
+    if (Array.isArray(model.availableMaterialKeys) && model.availableMaterialKeys.length) {
+      const allowedKeys = new Set(model.availableMaterialKeys);
+      return options.filter((item) => allowedKeys.has(item.key));
+    }
+
+    return options;
+  }, [filamentsQuery.data, filamentsQuery.isSuccess, model.availableMaterialKeys]);
 
   const selectedMaterial = useMemo(
     () => filamentOptions.find((item) => item.key === selectedFilament) ?? filamentOptions[0],
@@ -248,7 +257,8 @@ export function PremadeModelRequestForm({ model, onBack }) {
               Az admin filamentlista nem érhető el, ezért az alapértelmezett anyagok láthatók.
             </p>
           ) : null}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {filamentOptions.length ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {filamentOptions.map((material) => {
               const isActive = material.key === selectedFilament;
               return (
@@ -260,18 +270,30 @@ export function PremadeModelRequestForm({ model, onBack }) {
                     setSelectedColorHex(material.colors?.[0]?.hex ?? "");
                   }}
                   className={[
-                    "flex h-full flex-col rounded-lg border p-4 text-left transition",
+                    "flex h-full flex-col rounded-lg border-2 p-4 text-left transition",
                     isActive
-                      ? "border-sky-400 bg-sky-100/70 shadow"
+                      ? "border-sky-500 bg-sky-200/80 shadow-lg ring-2 ring-sky-300/70"
                       : "border-slate-200 bg-white/70 hover:border-sky-300 hover:bg-sky-50/60",
                   ].join(" ")}
                 >
-                  <span className="text-base font-semibold text-sky-900">{material.label}</span>
+                  <span className="flex items-center justify-between gap-2 text-base font-semibold text-sky-900">
+                    {material.label}
+                    {isActive ? (
+                      <span className="rounded-full bg-sky-600 px-2 py-1 text-xs font-bold text-white">
+                        ✓ Kijelölve
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="mt-2 text-sm text-slate-600">{material.description}</span>
                 </button>
               );
             })}
-          </div>
+            </div>
+          ) : (
+            <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-700">
+              Ehhez a modellhez jelenleg nincs elérhető anyagtípus.
+            </p>
+          )}
 
           {colorOptions.length ? (
             <div className="mt-5">
@@ -285,9 +307,9 @@ export function PremadeModelRequestForm({ model, onBack }) {
                       type="button"
                       onClick={() => setSelectedColorHex(color.hex)}
                       className={[
-                        "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition",
+                        "inline-flex items-center gap-2 rounded-md border-2 px-3 py-2 text-sm font-semibold transition",
                         isActive
-                          ? "border-sky-300 bg-sky-100/70 text-sky-900 shadow"
+                          ? "border-emerald-500 bg-emerald-100 text-emerald-900 shadow-md ring-2 ring-emerald-300/70"
                           : "border-slate-200 bg-white/70 text-slate-700 hover:border-sky-300",
                       ].join(" ")}
                     >
@@ -297,6 +319,11 @@ export function PremadeModelRequestForm({ model, onBack }) {
                         aria-hidden="true"
                       />
                       {color.name}
+                      {isActive ? (
+                        <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          ✓
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}

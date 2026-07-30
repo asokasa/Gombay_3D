@@ -63,9 +63,33 @@ function serializePremadeModel(item) {
     size: item.size,
     image: images[0] ?? item.image,
     images,
+    availableMaterialKeys:
+      Array.isArray(item.availableMaterialKeys) && item.availableMaterialKeys.length
+        ? item.availableMaterialKeys
+        : null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
+}
+
+function parseMaterialKeys(value) {
+  let source = value;
+
+  if (typeof source === "string") {
+    try {
+      source = JSON.parse(source);
+    } catch {
+      source = source.split(",");
+    }
+  }
+
+  if (!Array.isArray(source)) {
+    return null;
+  }
+
+  return [...new Set(source
+    .map((key) => String(key || "").trim().toUpperCase())
+    .filter(Boolean))].slice(0, 100);
 }
 
 function buildImagePayload(file, uploadedImage) {
@@ -166,6 +190,11 @@ export async function createPremadeModel(req, res) {
   const description = String(req.body?.description || "").trim();
   const size = String(req.body?.size || "").trim();
   const priceHuf = Number(req.body?.priceHuf);
+  const hasMaterialSelection = Object.prototype.hasOwnProperty.call(
+    req.body || {},
+    "availableMaterialKeys",
+  );
+  const availableMaterialKeys = parseMaterialKeys(req.body?.availableMaterialKeys);
   const files = requireImageFiles(req, res);
 
   if (!files) {
@@ -180,6 +209,10 @@ export async function createPremadeModel(req, res) {
     return res.status(400).json({ error: "Valid price is required" });
   }
 
+  if (hasMaterialSelection && (!availableMaterialKeys || availableMaterialKeys.length === 0)) {
+    return res.status(400).json({ error: "At least one material type is required" });
+  }
+
   const images = await uploadImageFiles(files, getCloudinaryFolders().premadeItems);
   const item = await PremadeModel.create({
     title,
@@ -188,6 +221,7 @@ export async function createPremadeModel(req, res) {
     size,
     image: images[0],
     images,
+    ...(availableMaterialKeys ? { availableMaterialKeys } : {}),
   });
 
   return res.status(201).json({ item: serializePremadeModel(item) });

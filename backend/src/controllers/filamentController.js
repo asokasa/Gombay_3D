@@ -31,6 +31,7 @@ function normalizeColors(value) {
     .map((item) => ({
       name: String(item?.name || "").trim(),
       hex: String(item?.hex || "").trim(),
+      available: item?.available !== false,
     }))
     .filter((item) => item.name && HEX_COLOR_PATTERN.test(item.hex))
     .slice(0, 40);
@@ -71,14 +72,24 @@ function buildFilamentPayload(body) {
     materialMultiplier,
     machineMultiplier,
     priceHufPerGram,
+    available: body?.available !== false,
     colors: normalizeColors(body?.colors),
     sortOrder,
   };
 }
 
-function serializeFilament(item) {
+function serializeFilament(item, { includeUnavailableColors = false } = {}) {
+  const colors = (item.colors || [])
+    .map((color) => ({
+      name: color.name,
+      hex: color.hex,
+      available: color.available !== false,
+    }))
+    .filter((color) => includeUnavailableColors || color.available);
+
   return {
     id: item._id.toString(),
+    available: item.available !== false,
     key: item.key,
     label: item.label,
     description: item.description || "",
@@ -87,7 +98,7 @@ function serializeFilament(item) {
     materialMultiplier: item.materialMultiplier,
     machineMultiplier: item.machineMultiplier,
     priceHufPerGram: item.priceHufPerGram,
-    colors: item.colors || [],
+    colors,
     sortOrder: item.sortOrder || 0,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
@@ -95,10 +106,21 @@ function serializeFilament(item) {
 }
 
 export async function listFilaments(_req, res) {
-  const items = await FilamentOption.find().sort({ sortOrder: 1, label: 1 }).limit(200).lean();
+  const items = await FilamentOption.find({ available: { $ne: false } })
+    .sort({ sortOrder: 1, label: 1 })
+    .limit(200)
+    .lean();
 
   return res.json({
     items: items.map(serializeFilament),
+  });
+}
+
+export async function listAdminFilaments(_req, res) {
+  const items = await FilamentOption.find().sort({ sortOrder: 1, label: 1 }).limit(200).lean();
+
+  return res.json({
+    items: items.map((item) => serializeFilament(item, { includeUnavailableColors: true })),
   });
 }
 

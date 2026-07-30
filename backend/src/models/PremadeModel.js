@@ -49,6 +49,11 @@ const premadeModelSchema = new mongoose.Schema(
         message: "You can upload up to 3 images",
       },
     },
+    // Kept undefined for old models: an omitted value means every current material.
+    availableMaterialKeys: {
+      type: [String],
+      default: undefined,
+    },
   },
   { timestamps: true },
 );

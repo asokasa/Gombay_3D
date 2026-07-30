@@ -12,6 +12,7 @@ import {
 import {
   createFilament,
   deleteFilament,
+  listAdminFilaments,
   updateFilament,
 } from "../controllers/filamentController.js";
 import { updateCalculatorSettings } from "../controllers/calculatorSettingsController.js";
@@ -59,6 +60,7 @@ router.post("/reference-images", itemImageUpload, asyncHandler(createReferenceIm
 router.delete("/reference-images/:id", asyncHandler(deleteReferenceImage));
 router.post("/premade-models", itemImageUpload, asyncHandler(createPremadeModel));
 router.delete("/premade-models/:id", asyncHandler(deletePremadeModel));
+router.get("/filaments", asyncHandler(listAdminFilaments));
 router.post("/filaments", asyncHandler(createFilament));
 router.patch("/filaments/:id", asyncHandler(updateFilament));
 router.delete("/filaments/:id", asyncHandler(deleteFilament));

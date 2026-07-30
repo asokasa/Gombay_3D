@@ -13,6 +13,7 @@ import Modellek from "./routes/Modellek";
 import Referenciak from "./routes/Referenciak";
 import AdminLogin from "./routes/AdminLogin";
 import AdminDashboard from "./routes/AdminDashboard";
+import LegalDocument from "./routes/LegalDocument";
 
 const router = createBrowserRouter([
   {
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
       { path: "/referenciak", element: <Referenciak /> },
       { path: "/kapcsolatok", element: <Kapcsolatok /> },
       { path: "/ajanlatkeres", element: <Ajanlatkeres /> },
+      { path: "/jogi/:documentKey", element: <LegalDocument /> },
     ],
   },
   { path: "/admin", element: <AdminLogin /> },
