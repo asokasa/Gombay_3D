@@ -1,5 +1,4 @@
 import { Outlet, useLocation } from "react-router-dom";
-import LegalNoticeModal from "./LegalNoticeModal";
 import ParticleBackground from "./ParticleBackground";
 import SEO from "./SEO";
 
@@ -56,7 +55,6 @@ export default function PublicSiteLayout() {
         <SEO {...(getSeoForPath(location.pathname) || {})} />
         <Outlet />
       </div>
-      <LegalNoticeModal />
     </div>
   );
 }
