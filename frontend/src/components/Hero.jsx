@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 
-export default function Hero() {
+export default function Hero({ logoStyle }) {
   return (
     <section className="relative isolate overflow-hidden px-4 pb-12 text-white [clip-path:inset(0)] md:pb-16">
       <img
         src="/last_refined.png"
         alt=""
-        className="hero-logo-glow pointer-events-none fixed left-1/2 top-1/2 z-0 h-[22rem] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 md:h-[34rem]"
+        className="hero-logo-glow pointer-events-none fixed left-1/2 top-1/2 z-0 h-[22rem] w-auto max-w-none md:h-[34rem]"
+        style={logoStyle}
         aria-hidden="true"
       />
       <div className="home-hero-backdrop absolute z-[1]" aria-hidden="true" />
@@ -29,7 +30,7 @@ export default function Hero() {
           </div>
         </div>
 
-        <div className="flex min-h-72 items-center justify-center md:min-h-96">
+        <div className="flex min-h-72 items-center justify-center md:min-h-96 md:translate-x-8 lg:translate-x-12">
           <img
             src="/nagyobb_nyomtato_cutout.png"
             alt="3D nyomtató munka közben"

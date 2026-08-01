@@ -21,7 +21,7 @@ const features = [
   },
 ];
 
-export default function Features() {
+export default function Features({ logoStyle }) {
   return (
     <section
       id="features"
@@ -30,7 +30,8 @@ export default function Features() {
       <img
         src="/last_refined.png"
         alt=""
-        className="hero-logo-glow pointer-events-none fixed left-1/2 top-1/2 z-0 h-[22rem] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 md:h-[34rem]"
+        className="hero-logo-glow pointer-events-none fixed left-1/2 top-1/2 z-0 h-[22rem] w-auto max-w-none md:h-[34rem]"
+        style={logoStyle}
         aria-hidden="true"
       />
       <div className="home-section-backdrop absolute inset-0 z-[1]" aria-hidden="true" />

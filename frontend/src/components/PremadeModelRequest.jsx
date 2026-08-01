@@ -19,6 +19,7 @@ export function PremadeModelCard({ model, isSelected = false, onSelect }) {
         images={model.images?.length ? model.images : [{ src: model.imageUrl, alt: model.title }]}
         title={model.title}
         className="h-56 w-full"
+        imageWidth={480}
       />
       <button
         type="button"

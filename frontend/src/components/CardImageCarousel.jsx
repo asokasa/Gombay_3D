@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { getOptimizedImageUrl } from "../lib/optimizedImageUrl";
 
 export default function CardImageCarousel({
   images,
   title,
   className = "aspect-square w-full",
   imageClassName = "h-full w-full object-cover",
+  imageWidth = 640,
+  imageQuality = "auto:eco",
 }) {
   const imageList = (images ?? []).filter((image) => image?.src);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -24,9 +27,14 @@ export default function CardImageCarousel({
   return (
     <div className={`relative overflow-hidden ${className}`}>
       <img
-        src={activeImage.src}
+        src={getOptimizedImageUrl(activeImage.src, {
+          width: imageWidth,
+          quality: imageQuality,
+        })}
         alt={activeImage.alt || title}
         className={imageClassName}
+        loading="lazy"
+        decoding="async"
         draggable="false"
       />
 

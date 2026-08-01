@@ -20,13 +20,21 @@ export default function Referenciak() {
         <section className="mx-auto max-w-6xl">
           <p className="neon-kicker">Referenciák</p>
           <h1 className="neon-heading mt-3 text-4xl font-extrabold md:text-5xl">
-            Elkészült munkák neon fényben
+            Elkészült munkák
           </h1>
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {galleryImages.map((image) => (
               <figure key={image.src} className="neon-card overflow-hidden">
-                <CardImageCarousel images={image.images} title={image.title} />
-                <figcaption className="p-4 text-sm font-semibold text-sky-100">{image.title}</figcaption>
+                <CardImageCarousel
+                  images={image.images}
+                  title={image.title}
+                  className="mx-auto aspect-[4/3] w-full max-w-[22rem]"
+                  imageWidth={480}
+                  imageQuality="auto:eco"
+                />
+                <figcaption className="p-4 text-center text-lg font-semibold text-sky-100">
+                  {image.title}
+                </figcaption>
               </figure>
             ))}
           </div>

@@ -7,7 +7,7 @@ import { buildReferenceImageList } from "../lib/referenceImages";
 const VISIBLE_REFERENCE_COUNT = 3;
 const ROTATION_INTERVAL_MS = 5000;
 
-export default function LatestReferencesCarousel() {
+export default function LatestReferencesCarousel({ logoStyle }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [transitionEnabled, setTransitionEnabled] = useState(true);
   const referenceImagesQuery = useQuery({
@@ -81,7 +81,8 @@ export default function LatestReferencesCarousel() {
       <img
         src="/last_refined.png"
         alt=""
-        className="hero-logo-glow pointer-events-none fixed left-1/2 top-1/2 z-0 h-[22rem] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 md:h-[34rem]"
+        className="hero-logo-glow pointer-events-none fixed left-1/2 top-1/2 z-0 h-[22rem] w-auto max-w-none md:h-[34rem]"
+        style={logoStyle}
         aria-hidden="true"
       />
       <div className="home-section-backdrop absolute inset-0 z-[1]" aria-hidden="true" />
