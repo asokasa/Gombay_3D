@@ -74,7 +74,7 @@ export default function LegalNoticeModal() {
       aria-labelledby="legal-notice-title"
     >
       <div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-sky-400/40 bg-slate-950 p-6 text-slate-100 shadow-[0_0_60px_rgba(14,165,233,0.2)] md:p-8">
-        <p className="neon-kicker">Fontos tájékoztatás</p>
+        <p className="neon-kicker">Fontos tájékoztatás!</p>
         <h2 id="legal-notice-title" className="mt-2 text-2xl font-bold text-sky-100 md:text-3xl">
           Sütik és jogi dokumentumok
         </h2>
