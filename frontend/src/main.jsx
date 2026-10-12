@@ -12,6 +12,7 @@ import Posts from "./routes/Posts";
 import Kapcsolatok from "./routes/Kapcsolatok";
 import Ajanlatkeres from "./routes/Ajanlatkeres";
 import Modellek from "./routes/Modellek";
+import GYIK from "./routes/GYIK";
 import Referenciak from "./routes/Referenciak";
 import AdminLogin from "./routes/AdminLogin";
 import AdminDashboard from "./routes/AdminDashboard";
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
       { path: "/", element: <Home /> },
       { path: "/posts", element: <Posts /> },
       { path: "/modellek", element: <Modellek /> },
+      { path: "/gyik", element: <GYIK /> },
       { path: "/referenciak", element: <Referenciak /> },
       { path: "/kapcsolatok", element: <Kapcsolatok /> },
       { path: "/ajanlatkeres", element: <Ajanlatkeres /> },
