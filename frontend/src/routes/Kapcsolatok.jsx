@@ -24,7 +24,7 @@ export default function Kapcsolatok() {
               <h2 className="text-xl font-semibold text-sky-100">Azonnali elérés</h2>
               <div className="mt-4 space-y-4 text-sm text-slate-300">
                 <p>
-                  <span className="font-semibold text-sky-200">Telefon:</span> +36 80 123 123
+                  <span className="font-semibold text-sky-200">Telefon:</span> +36 80 124 124
                 </p>
                 <p>
                   <span className="font-semibold text-sky-200">E-mail:</span> {CONTACT_EMAIL}
