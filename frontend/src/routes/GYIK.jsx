@@ -11,7 +11,7 @@ export default function GYIK() {
           <p className="neon-kicker">GYIK</p>
 
           <h1 className="neon-heading mt-3 text-4xl font-extrabold md:text-5xl">
-            Gyakran ismételt kérdések
+            Gyakran ismételt kérdések.
           </h1>
 
           <p className="mt-5 text-slate-400">
