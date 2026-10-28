@@ -11,7 +11,7 @@ function App() {
       justifyContent: "center",
       fontFamily: "Arial, sans-serif"
     }}>
-      A weboldal jelenleg nem elérhető.
+     Weboldalunk jelenleg karbantartás alatt áll.
     </div>
   );
 }
