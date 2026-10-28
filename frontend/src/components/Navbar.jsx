@@ -85,6 +85,11 @@ export default function Navbar({ overlay = false, hideBrandUntilScrolled = false
                 </NavLink>
               </li>
               <li>
+                <NavLink to="/gyik" className={navLinkClass} onClick={handleNavigate}>
+                  GYIK
+                </NavLink>
+              </li>
+              <li>
                 <NavLink to="/referenciak" className={navLinkClass} onClick={handleNavigate}>
                   Referenciák
                 </NavLink>
