@@ -1,48 +1,33 @@
+```jsx
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ReactLenis } from "lenis/react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
-import "lenis/dist/lenis.css";
 
-import PublicSiteLayout from "./components/PublicSiteLayout";
-import Home from "./routes/Home";
-import Posts from "./routes/Posts";
-import Kapcsolatok from "./routes/Kapcsolatok";
-import Ajanlatkeres from "./routes/Ajanlatkeres";
-import Modellek from "./routes/Modellek";
-import GYIK from "./routes/GYIK";
-import Referenciak from "./routes/Referenciak";
-import AdminLogin from "./routes/AdminLogin";
-import AdminDashboard from "./routes/AdminDashboard";
-import LegalDocument from "./routes/LegalDocument";
+function Maintenance() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-black text-white px-6">
+      <div className="text-center max-w-xl">
+        <div className="text-6xl mb-6">🔧</div>
 
-const router = createBrowserRouter([
-  {
-    element: <PublicSiteLayout />,
-    children: [
-      { path: "/", element: <Home /> },
-      { path: "/posts", element: <Posts /> },
-      { path: "/modellek", element: <Modellek /> },
-      { path: "/gyik", element: <GYIK /> },
-      { path: "/referenciak", element: <Referenciak /> },
-      { path: "/kapcsolatok", element: <Kapcsolatok /> },
-      { path: "/ajanlatkeres", element: <Ajanlatkeres /> },
-      { path: "/jogi/:documentKey", element: <LegalDocument /> },
-    ],
-  },
-  { path: "/admin", element: <AdminLogin /> },
-  { path: "/admin/dashboard", element: <AdminDashboard /> },
-]);
-const qc = new QueryClient();
+        <h1 className="text-4xl font-bold mb-4">
+          Karbantartás
+        </h1>
+
+        <p className="text-lg text-gray-400 mb-3">
+          A weboldal jelenleg karbantartás alatt áll.
+        </p>
+
+        <p className="text-gray-500">
+          Kérjük, látogass vissza később!
+        </p>
+      </div>
+    </div>
+  );
+}
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <QueryClientProvider client={qc}>
-      <ReactLenis root options={{ anchors: true }}>
-        <RouterProvider router={router} />
-      </ReactLenis>
-    </QueryClientProvider>
+    <Maintenance />
   </StrictMode>
 );
+```
